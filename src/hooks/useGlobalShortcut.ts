@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 interface UseGlobalShortcutOptions {
   onToggle: () => void;
@@ -9,12 +10,11 @@ export const useGlobalShortcut = ({ onToggle }: UseGlobalShortcutOptions) => {
   onToggleRef.current = onToggle;
 
   useEffect(() => {
-    let unlistenTauri: (() => void) | undefined;
+    let unlistenTauri: UnlistenFn | undefined;
 
     // Single source of truth: Listen to native Tauri Global Keyhook event for Ctrl + Alt
     const initTauriListener = async () => {
       try {
-        const { listen } = await import('@tauri-apps/api/event');
         unlistenTauri = await listen('global-shortcut-triggered', () => {
           onToggleRef.current();
         });

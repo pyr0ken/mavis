@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { CustomEase } from 'gsap/CustomEase';
+import { invoke } from '@tauri-apps/api/core';
 import { IslandState, NOTCH_GEOMETRIES } from '../types/island';
 
 // Register GSAP CustomEase plugin once
@@ -29,12 +30,11 @@ interface UseIslandAnimationOptions {
   onAnimationEnd?: () => void;
 }
 
-const updateInputRegion = async (width: number, height: number) => {
+const updateInputRegion = (width: number, height: number) => {
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
     const w = width > 0 ? width + 30 : 0;
     const h = height > 0 ? height + 20 : 0;
-    await invoke('update_input_region', { width: Math.round(w), height: Math.round(h) });
+    invoke('update_input_region', { width: Math.round(w), height: Math.round(h) }).catch(() => {});
   } catch {
     // Ignored outside Tauri environment
   }
@@ -205,7 +205,7 @@ export const useIslandAnimation = ({
         scaleX: 0.92,
         scaleY: 0.55,
         opacity: 0,
-        duration: 0.32,
+        duration: 0.22,
         ease: 'appleRetract',
         onComplete: () => {
           if (onAnimationEnd) onAnimationEnd();
@@ -223,7 +223,7 @@ export const useIslandAnimation = ({
           opacity: 0,
           y: -12,
           scale: 0.98,
-          duration: 0.22,
+          duration: 0.2,
           ease: 'power2.inOut',
           onComplete: () => {
             gsap.set(actionContent, { display: 'none' });
@@ -234,7 +234,7 @@ export const useIslandAnimation = ({
         tl.to(successContent, {
           opacity: 0,
           scale: 0.92,
-          duration: 0.18,
+          duration: 0.16,
           ease: 'power2.in',
           onComplete: () => {
             gsap.set(successContent, { display: 'none' });
@@ -256,16 +256,16 @@ export const useIslandAnimation = ({
           width: geo.width,
           height: geo.height,
           borderRadius: geo.borderRadius,
-          duration: 0.48,
+          duration: 0.32,
           ease: 'appleSpring',
         });
         if (idleContent) {
           tl.to(idleContent, {
             opacity: 1,
             y: 0,
-            duration: 0.35,
+            duration: 0.24,
             ease: 'appleSmooth',
-          }, '-=0.38');
+          }, '-=0.25');
         }
       } else if (prevState === 'success') {
         // Morphing from success toast back to idle

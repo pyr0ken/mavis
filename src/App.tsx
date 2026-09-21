@@ -19,35 +19,16 @@ export const App: React.FC = () => {
   intentRef.current = intentType;
   const lastToggleTime = useRef(0);
 
-  const showOverlay = async () => {
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('show_window');
-    } catch {
-      // Ignored outside Tauri
-    }
-  };
-
-  const hideOverlay = async () => {
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('hide_window');
-    } catch {
-      // Ignored outside Tauri
-    }
-  };
-
-  // Hotkey toggle (Ctrl + Alt)
-  const handleToggle = useCallback(async () => {
+  // Hotkey toggle (Ctrl + Alt) - Instantaneous state trigger (0ms latency)
+  const handleToggle = useCallback(() => {
     const now = Date.now();
-    if (now - lastToggleTime.current < 250) {
+    if (now - lastToggleTime.current < 150) {
       return;
     }
     lastToggleTime.current = now;
 
     const current = stateRef.current;
     if (current === 'hidden') {
-      await showOverlay();
       setState('idle');
     } else {
       setState('hidden');
@@ -89,10 +70,8 @@ export const App: React.FC = () => {
     setState('idle');
   }, []);
 
-  const handleAnimationEnd = useCallback(async () => {
-    if (stateRef.current === 'hidden') {
-      await hideOverlay();
-    }
+  const handleAnimationEnd = useCallback(() => {
+    // Animation completed lifecycle callback
   }, []);
 
   // Global shortcut hook for Ctrl + Alt

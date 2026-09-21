@@ -240,7 +240,7 @@ pub fn run() {
                                 let now = now_millis();
                                 let last = last_trigger.load(Ordering::SeqCst);
 
-                                if now - last > 300 {
+                                if now - last > 160 {
                                     triggered_latch.store(true, Ordering::SeqCst);
                                     last_trigger.store(now, Ordering::SeqCst);
 

@@ -17,18 +17,17 @@ export const AppleIntelligenceGlow: React.FC<AppleIntelligenceGlowProps> = ({
       style={{
         boxShadow: isSuccess
           ? `
-            0 0 0 1px rgba(52, 211, 153, 0.5),
-            0 10px 40px -5px rgba(52, 211, 153, 0.4),
-            0 25px 60px -10px rgba(0, 0, 0, 0.95)
+            0 0 0 1px rgba(52, 211, 153, 0.6),
+            0 10px 30px -4px rgba(52, 211, 153, 0.4)
           `
           : active
           ? `
-            0 0 0 1px rgba(255, 255, 255, 0.15),
-            0 30px 80px -10px rgba(0, 0, 0, 0.98)
+            0 0 0 1px rgba(255, 255, 255, 0.2),
+            0 20px 48px -4px rgba(0, 0, 0, 0.9)
           `
           : `
-            0 0 0 1px rgba(255, 255, 255, 0.12),
-            0 20px 50px -10px rgba(0, 0, 0, 0.9)
+            0 0 0 1px rgba(255, 255, 255, 0.14),
+            0 16px 36px -4px rgba(0, 0, 0, 0.85)
           `,
       }}
     />

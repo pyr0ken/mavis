@@ -48,7 +48,6 @@ export const ListeningView: React.FC<ListeningViewProps> = ({ active }) => {
           <div>
             <div className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
               <span>VoiceOS</span>
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
             </div>
             <div className="text-[11px] text-gray-300 font-medium">Listening to your command...</div>
           </div>

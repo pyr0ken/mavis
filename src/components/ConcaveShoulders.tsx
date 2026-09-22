@@ -12,7 +12,10 @@ export const ConcaveShoulders: React.FC<ConcaveShouldersProps> = ({
       {/* Left Continuous-Curvature Inverted Fillet */}
       <svg
         className="absolute top-0 -left-[35.5px] w-[36px] h-[36px] pointer-events-none z-50 transition-colors duration-200"
-        style={{ fill: color }}
+        style={{
+          fill: color,
+          filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.65))',
+        }}
         viewBox="0 0 36 36"
       >
         <path d="M 0 0 C 22 0, 36 10, 36 36 L 36 0 Z" />
@@ -21,7 +24,10 @@ export const ConcaveShoulders: React.FC<ConcaveShouldersProps> = ({
       {/* Right Continuous-Curvature Inverted Fillet */}
       <svg
         className="absolute top-0 -right-[35.5px] w-[36px] h-[36px] pointer-events-none scale-x-[-1] z-50 transition-colors duration-200"
-        style={{ fill: color }}
+        style={{
+          fill: color,
+          filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.65))',
+        }}
         viewBox="0 0 36 36"
       >
         <path d="M 0 0 C 22 0, 36 10, 36 36 L 36 0 Z" />

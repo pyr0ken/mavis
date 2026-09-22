@@ -85,25 +85,155 @@ mod layer_shell {
     }
 }
 
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
+pub struct ChatMessagePayload {
+    pub role: String,
+    pub content: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
+pub struct ChatTokenEvent {
+    pub message_id: String,
+    pub token: String,
+    pub is_done: bool,
+    pub error: Option<String>,
+}
+
+#[tauri::command]
+async fn send_chat_stream(
+    window: WebviewWindow,
+    message_id: String,
+    messages: Vec<ChatMessagePayload>,
+) -> Result<(), String> {
+    let client = reqwest::Client::new();
+    let payload = serde_json::json!({
+        "model": "antigravity",
+        "messages": messages,
+        "stream": true
+    });
+
+    let res = client
+        .post("http://127.0.0.1:20128/v1/chat/completions")
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !res.status().is_success() {
+        let err_text = res.text().await.unwrap_or_else(|_| "OmniRoute request failed".to_string());
+        let _ = window.emit(
+            "chat-stream-event",
+            ChatTokenEvent {
+                message_id: message_id.clone(),
+                token: "".to_string(),
+                is_done: true,
+                error: Some(err_text),
+            },
+        );
+        return Err("OmniRoute returned error status".to_string());
+    }
+
+    let mut stream = res.bytes_stream();
+    let mut buffer = String::new();
+
+    use futures_util::StreamExt;
+    while let Some(chunk_res) = stream.next().await {
+        match chunk_res {
+            Ok(bytes) => {
+                let text = String::from_utf8_lossy(&bytes);
+                buffer.push_str(&text);
+
+                while let Some(pos) = buffer.find('\n') {
+                    let line = buffer[..pos].trim().to_string();
+                    buffer = buffer[pos + 1..].to_string();
+
+                    if line.starts_with("data: ") {
+                        let data = &line[6..];
+                        if data == "[DONE]" {
+                            let _ = window.emit(
+                                "chat-stream-event",
+                                ChatTokenEvent {
+                                    message_id: message_id.clone(),
+                                    token: "".to_string(),
+                                    is_done: true,
+                                    error: None,
+                                },
+                            );
+                            return Ok(());
+                        }
+
+                        if let Ok(val) = serde_json::from_str::<serde_json::Value>(data) {
+                            if let Some(delta) = val
+                                .get("choices")
+                                .and_then(|c| c.get(0))
+                                .and_then(|c0| c0.get("delta"))
+                                .and_then(|d| d.get("content"))
+                                .and_then(|cnt| cnt.as_str())
+                            {
+                                let _ = window.emit(
+                                    "chat-stream-event",
+                                    ChatTokenEvent {
+                                        message_id: message_id.clone(),
+                                        token: delta.to_string(),
+                                        is_done: false,
+                                        error: None,
+                                    },
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                let _ = window.emit(
+                    "chat-stream-event",
+                    ChatTokenEvent {
+                        message_id: message_id.clone(),
+                        token: "".to_string(),
+                        is_done: true,
+                        error: Some(e.to_string()),
+                    },
+                );
+                return Err(e.to_string());
+            }
+        }
+    }
+
+    let _ = window.emit(
+        "chat-stream-event",
+        ChatTokenEvent {
+            message_id,
+            token: "".to_string(),
+            is_done: true,
+            error: None,
+        },
+    );
+
+    Ok(())
+}
+
 #[tauri::command]
 fn update_input_region(window: WebviewWindow, width: i32, height: i32) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     {
-        if let Ok(gtk_win) = window.gtk_window() {
-            if let Some(gdk_win) = gtk_win.window() {
-                if width <= 0 || height <= 0 {
-                    let empty = cairo::Region::create();
-                    gdk_win.input_shape_combine_region(&empty, 0, 0);
-                } else {
-                    let window_width = 1100;
-                    let x = (window_width - width) / 2;
-                    let y = 0;
-                    let rect = cairo::RectangleInt::new(x, y, width, height);
-                    let region = cairo::Region::create_rectangle(&rect);
-                    gdk_win.input_shape_combine_region(&region, 0, 0);
+        let win = window.clone();
+        gtk::glib::idle_add_once(move || {
+            if let Ok(gtk_win) = win.gtk_window() {
+                if let Some(gdk_win) = gtk_win.window() {
+                    if width <= 0 || height <= 0 {
+                        let empty = cairo::Region::create();
+                        gdk_win.input_shape_combine_region(&empty, 0, 0);
+                    } else {
+                        let window_width = 1100;
+                        let x = (window_width - width) / 2;
+                        let y = 0;
+                        let rect = cairo::RectangleInt::new(x, y, width, height);
+                        let region = cairo::Region::create_rectangle(&rect);
+                        gdk_win.input_shape_combine_region(&region, 0, 0);
+                    }
                 }
             }
-        }
+        });
     }
     Ok(())
 }
@@ -131,26 +261,35 @@ fn center_top_window(window: WebviewWindow) -> Result<(), String> {
 
 #[tauri::command]
 fn show_window(window: WebviewWindow) -> Result<(), String> {
-    let _ = center_top_window(window.clone());
-    let _ = window.show();
-    let _ = window.set_focus();
-    let _ = window.set_always_on_top(true);
-    let _ = window.set_visible_on_all_workspaces(true);
-    let _ = window.set_skip_taskbar(true);
-    let _ = update_input_region(window.clone(), 500, 80);
-
+    let win = window.clone();
     #[cfg(target_os = "linux")]
     {
-        if let Ok(gtk_win) = window.gtk_window() {
-            layer_shell::set_keyboard_mode_interactive(&gtk_win, true);
-            gtk_win.set_type_hint(gdk::WindowTypeHint::Dock);
-            gtk_win.set_skip_taskbar_hint(true);
-            gtk_win.set_skip_pager_hint(true);
-            gtk_win.set_keep_above(true);
-            gtk_win.stick();
-            gtk_win.present();
-            gtk_win.grab_focus();
-        }
+        gtk::glib::idle_add_once(move || {
+            let _ = center_top_window(win.clone());
+            let _ = win.show();
+            let _ = win.set_focus();
+            let _ = win.set_always_on_top(true);
+            let _ = win.set_visible_on_all_workspaces(true);
+            let _ = win.set_skip_taskbar(true);
+            let _ = update_input_region(win.clone(), 500, 80);
+
+            if let Ok(gtk_win) = win.gtk_window() {
+                layer_shell::set_keyboard_mode_interactive(&gtk_win, true);
+                gtk_win.set_type_hint(gdk::WindowTypeHint::Dock);
+                gtk_win.set_skip_taskbar_hint(true);
+                gtk_win.set_skip_pager_hint(true);
+                gtk_win.set_keep_above(true);
+                gtk_win.stick();
+                gtk_win.present();
+                gtk_win.grab_focus();
+            }
+        });
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = center_top_window(window.clone());
+        let _ = window.show();
+        let _ = window.set_focus();
     }
 
     Ok(())
@@ -158,29 +297,40 @@ fn show_window(window: WebviewWindow) -> Result<(), String> {
 
 #[tauri::command]
 fn hide_window(window: WebviewWindow) -> Result<(), String> {
+    let win = window.clone();
     #[cfg(target_os = "linux")]
     {
-        if let Ok(gtk_win) = window.gtk_window() {
-            layer_shell::set_keyboard_mode_interactive(&gtk_win, false);
-        }
+        gtk::glib::idle_add_once(move || {
+            if let Ok(gtk_win) = win.gtk_window() {
+                layer_shell::set_keyboard_mode_interactive(&gtk_win, false);
+            }
+            let _ = update_input_region(win.clone(), 0, 0);
+            let _ = win.hide();
+        });
     }
-    let _ = update_input_region(window.clone(), 0, 0);
-    let _ = window.hide();
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = update_input_region(window.clone(), 0, 0);
+        let _ = window.hide();
+    }
     Ok(())
 }
 
 #[tauri::command]
 fn set_keyboard_interactivity(window: WebviewWindow, interactive: bool) -> Result<(), String> {
+    let win = window.clone();
     #[cfg(target_os = "linux")]
     {
-        if let Ok(gtk_win) = window.gtk_window() {
-            layer_shell::set_keyboard_mode_interactive(&gtk_win, interactive);
-            if interactive {
-                gtk_win.present();
-                gtk_win.grab_focus();
-                let _ = window.set_focus();
+        gtk::glib::idle_add_once(move || {
+            if let Ok(gtk_win) = win.gtk_window() {
+                layer_shell::set_keyboard_mode_interactive(&gtk_win, interactive);
+                if interactive {
+                    gtk_win.present();
+                    gtk_win.grab_focus();
+                    let _ = win.set_focus();
+                }
             }
-        }
+        });
     }
     Ok(())
 }
@@ -216,7 +366,8 @@ pub fn run() {
             hide_window,
             set_cursor_click_through,
             update_input_region,
-            set_keyboard_interactivity
+            set_keyboard_interactivity,
+            send_chat_stream
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -287,13 +438,21 @@ pub fn run() {
                                     if let Some(window) = handle.get_webview_window("main") {
                                         #[cfg(target_os = "linux")]
                                         {
-                                            if let Ok(gtk_win) = window.gtk_window() {
-                                                layer_shell::set_keyboard_mode_interactive(&gtk_win, true);
-                                                gtk_win.present();
-                                            }
+                                            let win = window.clone();
+                                            gtk::glib::idle_add_once(move || {
+                                                if let Ok(gtk_win) = win.gtk_window() {
+                                                    layer_shell::set_keyboard_mode_interactive(&gtk_win, true);
+                                                    gtk_win.present();
+                                                }
+                                                let _ = win.set_focus();
+                                                let _ = win.emit("global-shortcut-triggered", ());
+                                            });
                                         }
-                                        let _ = window.set_focus();
-                                        let _ = window.emit("global-shortcut-triggered", ());
+                                        #[cfg(not(target_os = "linux"))]
+                                        {
+                                            let _ = window.set_focus();
+                                            let _ = window.emit("global-shortcut-triggered", ());
+                                        }
                                     }
                                 }
                             }

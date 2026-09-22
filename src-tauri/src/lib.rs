@@ -486,5 +486,5 @@ pub fn run() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running voice island tauri application");
+        .expect("error while running mavis tauri application");
 }

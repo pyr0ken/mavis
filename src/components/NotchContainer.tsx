@@ -1,13 +1,16 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, lazy, Suspense } from 'react';
 import { Check } from 'lucide-react';
 import { InteractiveBlobatar } from './InteractiveBlobatar';
-import { IslandState, ActionCardType } from '../types/island';
+import { IslandState, ActionCardType, ChatMessage } from '../types/island';
 import { ConcaveShoulders } from './ConcaveShoulders';
 import { AudioWaveformBars } from './AudioWaveformBars';
 import { AppleIntelligenceGlow } from './AppleIntelligenceGlow';
-import { ChatStreamCard, ChatMessage } from './ChatStreamCard';
 import { useIslandAnimation } from '../hooks/useIslandAnimation';
 import { useAnimatedPlaceholder } from '../hooks/useAnimatedPlaceholder';
+
+const LazyChatStreamCard = lazy(() =>
+  import('./ChatStreamCard').then((m) => ({ default: m.ChatStreamCard }))
+);
 
 interface NotchContainerProps {
   state: IslandState;
@@ -103,6 +106,26 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
       return () => clearTimeout(timer);
     }
   }, [state, onSuccessDismiss]);
+
+  // Preload heavy markdown/LaTeX chunk during browser idle
+  useEffect(() => {
+    const preload = () => {
+      import('./ChatStreamCard');
+    };
+    if (typeof window !== 'undefined') {
+      if ('requestIdleCallback' in window) {
+        const handle = (window as Window & { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback(preload);
+        return () => {
+          if ('cancelIdleCallback' in window) {
+            (window as Window & { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(handle);
+          }
+        };
+      } else {
+        const timer = setTimeout(preload, 1200);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, []);
 
   return (
     <div
@@ -227,13 +250,26 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
           onClick={(e) => e.stopPropagation()}
           className="w-full h-full rounded-[22px] bg-[#16181F]/95 backdrop-blur-2xl border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] overflow-hidden"
         >
-          <ChatStreamCard
-            active={isAction}
-            messages={messages}
-            isStreaming={isStreaming}
-            onClearSession={onClearSession}
-            onClose={onActionComplete}
-          />
+          <Suspense
+            fallback={
+              <div className="w-full h-full flex items-center justify-center text-xs text-white/40">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
+                  <span>Loading workspace...</span>
+                </div>
+              </div>
+            }
+          >
+            {isAction && (
+              <LazyChatStreamCard
+                active={isAction}
+                messages={messages}
+                isStreaming={isStreaming}
+                onClearSession={onClearSession}
+                onClose={onActionComplete}
+              />
+            )}
+          </Suspense>
         </div>
       </div>
 

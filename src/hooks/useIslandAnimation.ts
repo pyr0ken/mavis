@@ -174,7 +174,7 @@ export const useIslandAnimation = ({
 
     const targetHeight = state === 'typing' ? dynamicTypingHeight : geo.height;
 
-    // Update the native input hit-test shape to exactly match the target island size
+    // Update the native input hit-test shape to exactly match the target notch size
     updateInputRegion(geo.width, targetHeight);
 
     // Ensure transformOrigin is locked at top-center

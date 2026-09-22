@@ -21,11 +21,9 @@ import 'prismjs/components/prism-sql';
 import 'prismjs/components/prism-markdown';
 import 'prismjs/components/prism-latex';
 
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-}
+import { ChatMessage } from '../types/island';
+
+export type { ChatMessage };
 
 interface ChatStreamCardProps {
   active: boolean;

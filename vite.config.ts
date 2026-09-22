@@ -12,4 +12,19 @@ export default defineConfig({
       ignored: ['**/src-tauri/**'],
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-katex': ['katex', 'rehype-katex', 'remark-math'],
+          'vendor-prism': ['prismjs'],
+          'vendor-markdown': ['react-markdown', 'remark-gfm'],
+          'vendor-gsap': ['gsap'],
+          'vendor-blobatar': ['@blobatar/react', 'blobatar'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
+  },
 });
+

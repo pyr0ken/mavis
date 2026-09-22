@@ -28,6 +28,12 @@ export interface DesktopWorkspaceContext {
 
 export type ActionCardType = 'gmail' | 'calendar' | 'chat';
 
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export interface RecipientInfo {
   name: string;
   email: string;

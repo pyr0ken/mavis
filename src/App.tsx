@@ -1,9 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { IslandState, ActionCardType } from './types/island';
+import { IslandState, ActionCardType, ChatMessage } from './types/island';
 import { NotchContainer } from './components/NotchContainer';
-import { ChatMessage } from './components/ChatStreamCard';
 import { useGlobalShortcut } from './hooks/useGlobalShortcut';
 
 interface ChatTokenEvent {
@@ -433,7 +432,7 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* The Multi-Surface Floating Notch Island */}
+      {/* The Multi-Surface Floating Mavis Notch */}
       <NotchContainer
         state={state}
         intentType={intentType}

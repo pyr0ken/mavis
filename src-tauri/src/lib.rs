@@ -63,11 +63,25 @@ mod layer_shell {
                 gtk_layer_set_anchor(win_ptr, GtkLayerShellEdge::Bottom, 0);
                 gtk_layer_set_margin(win_ptr, GtkLayerShellEdge::Top, 0);
                 gtk_layer_set_exclusive_zone(win_ptr, 0);
-                gtk_layer_set_keyboard_mode(win_ptr, GtkLayerShellKeyboardMode::OnDemand);
+                gtk_layer_set_keyboard_mode(win_ptr, GtkLayerShellKeyboardMode::Exclusive);
                 return true;
             }
         }
         false
+    }
+
+    pub fn set_keyboard_mode_interactive(gtk_win: &gtk::ApplicationWindow, interactive: bool) {
+        unsafe {
+            if gtk_layer_is_supported() != 0 {
+                let win_ptr = gtk_win.as_ptr() as *mut gtk::ffi::GtkWindow;
+                let mode = if interactive {
+                    GtkLayerShellKeyboardMode::Exclusive
+                } else {
+                    GtkLayerShellKeyboardMode::None
+                };
+                gtk_layer_set_keyboard_mode(win_ptr, mode);
+            }
+        }
     }
 }
 
@@ -123,16 +137,19 @@ fn show_window(window: WebviewWindow) -> Result<(), String> {
     let _ = window.set_always_on_top(true);
     let _ = window.set_visible_on_all_workspaces(true);
     let _ = window.set_skip_taskbar(true);
-    let _ = update_input_region(window.clone(), 400, 70);
+    let _ = update_input_region(window.clone(), 500, 80);
 
     #[cfg(target_os = "linux")]
     {
         if let Ok(gtk_win) = window.gtk_window() {
+            layer_shell::set_keyboard_mode_interactive(&gtk_win, true);
             gtk_win.set_type_hint(gdk::WindowTypeHint::Dock);
             gtk_win.set_skip_taskbar_hint(true);
             gtk_win.set_skip_pager_hint(true);
             gtk_win.set_keep_above(true);
             gtk_win.stick();
+            gtk_win.present();
+            gtk_win.grab_focus();
         }
     }
 
@@ -141,8 +158,30 @@ fn show_window(window: WebviewWindow) -> Result<(), String> {
 
 #[tauri::command]
 fn hide_window(window: WebviewWindow) -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(gtk_win) = window.gtk_window() {
+            layer_shell::set_keyboard_mode_interactive(&gtk_win, false);
+        }
+    }
     let _ = update_input_region(window.clone(), 0, 0);
     let _ = window.hide();
+    Ok(())
+}
+
+#[tauri::command]
+fn set_keyboard_interactivity(window: WebviewWindow, interactive: bool) -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(gtk_win) = window.gtk_window() {
+            layer_shell::set_keyboard_mode_interactive(&gtk_win, interactive);
+            if interactive {
+                gtk_win.present();
+                gtk_win.grab_focus();
+                let _ = window.set_focus();
+            }
+        }
+    }
     Ok(())
 }
 
@@ -176,7 +215,8 @@ pub fn run() {
             show_window,
             hide_window,
             set_cursor_click_through,
-            update_input_region
+            update_input_region,
+            set_keyboard_interactivity
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -245,6 +285,14 @@ pub fn run() {
                                     last_trigger.store(now, Ordering::SeqCst);
 
                                     if let Some(window) = handle.get_webview_window("main") {
+                                        #[cfg(target_os = "linux")]
+                                        {
+                                            if let Ok(gtk_win) = window.gtk_window() {
+                                                layer_shell::set_keyboard_mode_interactive(&gtk_win, true);
+                                                gtk_win.present();
+                                            }
+                                        }
+                                        let _ = window.set_focus();
                                         let _ = window.emit("global-shortcut-triggered", ());
                                     }
                                 }

@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { IslandState, ActionCardType } from './types/island';
 import { NotchContainer } from './components/NotchContainer';
 import { useGlobalShortcut } from './hooks/useGlobalShortcut';
@@ -18,9 +19,60 @@ export const App: React.FC = () => {
   const intentRef = useRef<ActionCardType>(intentType);
   intentRef.current = intentType;
   const lastToggleTime = useRef(0);
+  const hiddenInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Sync keyboard interactivity with OS Layer Shell / KWin
+  const syncKeyboardInteractivity = useCallback((active: boolean) => {
+    try {
+      invoke('set_keyboard_interactivity', { interactive: active }).catch(() => {});
+    } catch {
+      // Ignored in standard browser preview
+    }
+  }, []);
+
+  const showOverlay = useCallback(async () => {
+    try {
+      await invoke('show_window');
+    } catch {
+      // Ignored outside Tauri
+    }
+  }, []);
+
+  const hideOverlay = useCallback(async () => {
+    try {
+      await invoke('hide_window');
+    } catch {
+      // Ignored outside Tauri
+    }
+  }, []);
+
+  useEffect(() => {
+    const isInteractive = state !== 'hidden';
+    syncKeyboardInteractivity(isInteractive);
+
+    if (isInteractive) {
+      window.focus();
+      // Focus invisible keyboard capture input if no other form input is active
+      const timer = setTimeout(() => {
+        window.focus();
+        if (
+          !(document.activeElement instanceof HTMLInputElement) &&
+          !(document.activeElement instanceof HTMLTextAreaElement)
+        ) {
+          hiddenInputRef.current?.focus();
+        }
+      }, 30);
+      return () => clearTimeout(timer);
+    } else {
+      // Immediately blur any active element in webview so OS compositor releases focus cleanly
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    }
+  }, [state, syncKeyboardInteractivity]);
 
   // Hotkey toggle (Ctrl + Alt) - Instantaneous state trigger (0ms latency)
-  const handleToggle = useCallback(() => {
+  const handleToggle = useCallback(async () => {
     const now = Date.now();
     if (now - lastToggleTime.current < 150) {
       return;
@@ -29,11 +81,13 @@ export const App: React.FC = () => {
 
     const current = stateRef.current;
     if (current === 'hidden') {
+      await showOverlay();
       setState('idle');
     } else {
+      syncKeyboardInteractivity(false);
       setState('hidden');
     }
-  }, []);
+  }, [showOverlay, syncKeyboardInteractivity]);
 
   // Click on the Notch top bar: Toggles between open and close, preserving exact intent & position
   const handleNotchClick = useCallback(() => {
@@ -70,9 +124,11 @@ export const App: React.FC = () => {
     setState('idle');
   }, []);
 
-  const handleAnimationEnd = useCallback(() => {
-    // Animation completed lifecycle callback
-  }, []);
+  const handleAnimationEnd = useCallback(async () => {
+    if (stateRef.current === 'hidden') {
+      await hideOverlay();
+    }
+  }, [hideOverlay]);
 
   // Global shortcut hook for Ctrl + Alt
   useGlobalShortcut({
@@ -80,26 +136,33 @@ export const App: React.FC = () => {
   });
 
   // Direct Keyboard Shortcuts:
+  // 'Space' -> Expand / Retract Notch Action Card
   // '1' -> Gmail New Message Card
   // '2' -> Calendar New Event Card
-  // 'Space' -> Toggle Listening / Action
   // 'd' or 'Tab' -> Auto Demo Mode
-  // 'Escape' -> Retract / Dismiss
+  // 'Escape' -> Retract / Dismiss to Bezel
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept if typing inside an active input or textarea
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) {
+      const target = e.target as HTMLElement | null;
+      const isFormInput =
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) &&
+        target !== hiddenInputRef.current;
+
+      // Don't intercept shortcut keys if user is intentionally typing inside Gmail/Calendar form inputs
+      if (isFormInput) {
         if (e.key === 'Escape') {
-          e.target.blur();
+          target.blur();
           setState('idle');
         }
         return;
       }
 
-      if (e.key === '1') {
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        e.stopPropagation();
+        setState((prev) => (prev === 'action' ? 'idle' : 'action'));
+      } else if (e.key === '1') {
         e.preventDefault();
         setIntentType('gmail');
         setState('action');
@@ -107,25 +170,18 @@ export const App: React.FC = () => {
         e.preventDefault();
         setIntentType('calendar');
         setState('action');
-      } else if (e.key === ' ' || e.code === 'Space') {
-        e.preventDefault();
-        setState((prev) => {
-          if (prev === 'idle') return 'action';
-          if (prev === 'action') return 'idle';
-          return 'idle';
-        });
       } else if (e.key.toLowerCase() === 'd' || e.key === 'Tab') {
         e.preventDefault();
         setIsAutoDemo((prev) => !prev);
       } else if (e.key === 'Escape') {
         e.preventDefault();
         setIsAutoDemo(false);
-        setState('idle');
+        setState('hidden');
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
   }, []);
 
   // Auto Demo Loop (Simulates the exact video flow when enabled)
@@ -166,6 +222,15 @@ export const App: React.FC = () => {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-transparent select-none font-sans">
+      {/* Invisible auto-focus capture element to ensure zero-latency keyboard routing */}
+      <input
+        ref={hiddenInputRef}
+        type="text"
+        tabIndex={0}
+        aria-hidden="true"
+        className="fixed opacity-0 pointer-events-none w-1 h-1 top-0 left-1/2 -z-50"
+      />
+
       {/* Backdrop overlay active only when dropdown card is expanded to retract back to notch on click */}
       {isExpanded && (
         <div

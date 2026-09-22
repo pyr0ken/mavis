@@ -27,6 +27,7 @@ interface UseIslandAnimationOptions {
   actionContentRef?: React.RefObject<HTMLDivElement | null>;
   successContentRef?: React.RefObject<HTMLDivElement | null>;
   state: IslandState;
+  lineCount?: number;
   onAnimationEnd?: () => void;
 }
 
@@ -46,6 +47,7 @@ export const useIslandAnimation = ({
   actionContentRef,
   successContentRef,
   state,
+  lineCount = 1,
   onAnimationEnd,
 }: UseIslandAnimationOptions) => {
   const isInitialized = useRef(false);
@@ -59,14 +61,18 @@ export const useIslandAnimation = ({
     const successContent = successContentRef?.current;
     if (!el) return;
 
+    const clampedLines = Math.min(3, Math.max(1, lineCount || 1));
+    const dynamicTypingHeight = 54 + (clampedLines - 1) * 24;
+
     // Initial setup on mount
     if (!isInitialized.current) {
       isInitialized.current = true;
       previousState.current = state;
       const initGeo = NOTCH_GEOMETRIES[state];
+      const initialHeight = state === 'typing' ? dynamicTypingHeight : initGeo.height;
 
       // Dynamically restrict input shape so underlying apps receive all scroll and click events
-      updateInputRegion(initGeo.width, initGeo.height);
+      updateInputRegion(initGeo.width, initialHeight);
 
       // Anchor top-center for organic bezel physics
       gsap.set(el, {
@@ -113,6 +119,19 @@ export const useIslandAnimation = ({
         if (idleContent) gsap.set(idleContent, { opacity: 1, display: 'flex', y: 0 });
         if (actionContent) gsap.set(actionContent, { opacity: 0, display: 'none' });
         if (successContent) gsap.set(successContent, { opacity: 0, display: 'none' });
+      } else if (state === 'typing') {
+        gsap.set(el, {
+          y: 0,
+          opacity: 1,
+          scaleX: 1,
+          scaleY: 1,
+          width: initGeo.width,
+          height: dynamicTypingHeight,
+          borderRadius: initGeo.borderRadius,
+        });
+        if (idleContent) gsap.set(idleContent, { opacity: 1, display: 'flex', y: 0 });
+        if (actionContent) gsap.set(actionContent, { opacity: 0, display: 'none' });
+        if (successContent) gsap.set(successContent, { opacity: 0, display: 'none' });
       } else if (state === 'action') {
         gsap.set(el, {
           y: 0,
@@ -153,8 +172,10 @@ export const useIslandAnimation = ({
     previousState.current = state;
     const geo = NOTCH_GEOMETRIES[state];
 
+    const targetHeight = state === 'typing' ? dynamicTypingHeight : geo.height;
+
     // Update the native input hit-test shape to exactly match the target island size
-    updateInputRegion(geo.width, geo.height);
+    updateInputRegion(geo.width, targetHeight);
 
     // Ensure transformOrigin is locked at top-center
     gsap.set(el, { transformOrigin: '50% 0%' });
@@ -376,6 +397,52 @@ export const useIslandAnimation = ({
     }
 
     // ==========================================
+    // Transition 3.5: To Typing
+    // ==========================================
+    if (state === 'typing') {
+      if (actionContent) {
+        tl.to(actionContent, {
+          opacity: 0,
+          y: -10,
+          duration: 0.18,
+          ease: 'power2.inOut',
+          onComplete: () => {
+            gsap.set(actionContent, { display: 'none' });
+          },
+        });
+      }
+      if (successContent) {
+        tl.to(successContent, {
+          opacity: 0,
+          scale: 0.92,
+          duration: 0.18,
+          ease: 'power2.inOut',
+          onComplete: () => {
+            gsap.set(successContent, { display: 'none' });
+          },
+        });
+      }
+
+      if (idleContent) {
+        gsap.set(idleContent, { display: 'flex', opacity: 1, y: 0 });
+      }
+
+      tl.to(el, {
+        xPercent: -50,
+        y: 0,
+        opacity: 1,
+        scaleX: 1,
+        scaleY: 1,
+        width: geo.width,
+        height: targetHeight,
+        borderRadius: geo.borderRadius,
+        duration: geo.duration,
+        ease: 'appleSmooth',
+      }, '-=0.1');
+      return;
+    }
+
+    // ==========================================
     // Transition 4: To Action (Gmail / Calendar Card)
     // ==========================================
     if (state === 'action') {
@@ -395,28 +462,35 @@ export const useIslandAnimation = ({
         gsap.set(idleContent, { display: 'flex', opacity: 1, y: 0 });
       }
 
-      // Smooth liquid morph outwards & downwards
-      tl.to(el, {
-        xPercent: -50,
-        y: 0,
-        opacity: 1,
-        scaleX: 1,
-        scaleY: 1,
-        width: geo.width,
-        height: geo.height,
-        borderRadius: geo.borderRadius,
-        duration: geo.duration,
-        ease: 'appleExpand',
-      }, '-=0.08');
+      if (prevState !== 'action') {
+        // Smooth liquid morph outwards & downwards only when opening
+        tl.to(el, {
+          xPercent: -50,
+          y: 0,
+          opacity: 1,
+          scaleX: 1,
+          scaleY: 1,
+          width: geo.width,
+          height: geo.height,
+          borderRadius: geo.borderRadius,
+          duration: geo.duration,
+          ease: 'appleExpand',
+        }, '-=0.08');
 
-      if (actionContent) {
-        gsap.set(actionContent, { display: 'block' });
-        tl.fromTo(
-          actionContent,
-          { opacity: 0, y: 14, scale: 0.985 },
-          { opacity: 1, y: 0, scale: 1, duration: 0.42, ease: 'appleSmooth' },
-          '-=0.38'
-        );
+        if (actionContent) {
+          gsap.set(actionContent, { display: 'block' });
+          tl.fromTo(
+            actionContent,
+            { opacity: 0, y: 14, scale: 0.985 },
+            { opacity: 1, y: 0, scale: 1, duration: 0.42, ease: 'appleSmooth' },
+            '-=0.38'
+          );
+        }
+      } else {
+        // Already in action mode - keep content completely stable without re-fading or reloading
+        if (actionContent) {
+          gsap.set(actionContent, { display: 'block', opacity: 1, scale: 1, y: 0 });
+        }
       }
       return;
     }
@@ -471,5 +545,5 @@ export const useIslandAnimation = ({
       }
       return;
     }
-  }, [state, containerRef, idleContentRef, actionContentRef, successContentRef, onAnimationEnd]);
+  }, [state, lineCount, containerRef, idleContentRef, actionContentRef, successContentRef, onAnimationEnd]);
 };

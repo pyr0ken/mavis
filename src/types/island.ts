@@ -2,6 +2,7 @@ export type IslandState =
   | 'hidden'        // Off-screen / retracted into top bezel (y: -150px)
   | 'idle'          // Large black notch (380px x 54px) with live avatar
   | 'listening'     // Expanded listening notch (520px x 60px) with 4-bar equalizer
+  | 'typing'        // In-place dynamic typing notch (520px x dynamic height)
   | 'action'        // 2X expanded notch (860px x 480px) containing Action Card
   | 'success';      // Floating / bezel-anchored Success Toast (380px x 60px)
 
@@ -25,7 +26,7 @@ export interface DesktopWorkspaceContext {
   activeIntentType: 'NONE' | 'GMAIL_COMPOSE' | 'CALENDAR_EVENT' | 'VOICE_STREAM';
 }
 
-export type ActionCardType = 'gmail' | 'calendar';
+export type ActionCardType = 'gmail' | 'calendar' | 'chat';
 
 export interface RecipientInfo {
   name: string;
@@ -68,10 +69,10 @@ export const NOTCH_GEOMETRIES: Record<IslandState, SurfaceGeometry> = {
     ease: 'appleRetract',
   },
   idle: {
-    width: 380,
+    width: 400,
     height: 54,
     borderRadius: '0 0 28px 28px',
-    duration: 0.48,
+    duration: 0.44,
     ease: 'appleSpring',
   },
   listening: {
@@ -80,6 +81,13 @@ export const NOTCH_GEOMETRIES: Record<IslandState, SurfaceGeometry> = {
     borderRadius: '0 0 30px 30px',
     duration: 0.46,
     ease: 'appleSpring',
+  },
+  typing: {
+    width: 480,
+    height: 54,
+    borderRadius: '0 0 28px 28px',
+    duration: 0.32,
+    ease: 'appleSmooth',
   },
   action: {
     width: 860,

@@ -27,7 +27,7 @@
 - [x] All functional requirements have clear acceptance criteria
 - [x] User scenarios cover primary open/close/retract/blur flows
 - [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] Spec adheres to the Voice Island Constitution v1.0.0
+- [x] Spec adheres to the Mavis Constitution v1.0.0
 
 ## Notes
 

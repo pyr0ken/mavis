@@ -43,7 +43,7 @@
 - [x] Authored end-to-end multi-workspace verification scenarios in `quickstart.md`.
 
 ### Phase 2: Implementation Tasks (Next Step: `/speckit-tasks`)
-- Task 1: Update `src-tauri/tauri.conf.json` with strict system overlay window properties (`app_id: "voice-island"`, `skipTaskbar: true`, `alwaysOnTop: true`, `visible: false`).
+- Task 1: Update `src-tauri/tauri.conf.json` with strict system overlay window properties (`app_id: "mavis"`, `skipTaskbar: true`, `alwaysOnTop: true`, `visible: false`).
 - Task 2: Enhance `src-tauri/src/lib.rs` with multi-monitor primary detection, `set_visible_on_all_workspaces(true)`, and click-through IPC command handlers.
 - Task 3: Implement frontend focus handshake and outside-blur dismissal in `src/hooks/useGlobalShortcut.ts` and `src/App.tsx`.
 - Task 4: Provide declarative KWin Window Rule template and setup script for KDE Plasma desktop environments.
@@ -54,7 +54,7 @@
 ## 4. Deliverables & File Mapping
 
 ```
-voice-island/
+mavis/
 ├── src-tauri/
 │   ├── Cargo.toml
 │   ├── tauri.conf.json

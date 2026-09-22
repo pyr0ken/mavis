@@ -1,4 +1,4 @@
-# Tasks: Pixel-Perfect High-Fidelity Voice Island Overlay & Action Cards
+# Tasks: Pixel-Perfect High-Fidelity Mavis Overlay & Action Cards
 
 **Feature Directory**: `specs/002-pixel-perfect-voice-overlay`  
 **Status**: Completed  

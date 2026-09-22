@@ -32,7 +32,7 @@
 - [ ] CHK011 - Do the workspace persistence requirements align with Constitution Principle II regarding lightweight floating architecture? [Consistency, Constitution §II]
 - [ ] CHK012 - Are window level requirements (`always_on_top`) consistent across both idle notch and expanded Action Card modal states? [Consistency, Spec §FR-002]
 - [ ] CHK013 - Do the keyboard focus acquisition and dismissal rules align between global shortcut triggers, `Escape` key, and outside backdrop blur? [Consistency, Spec §FR-009]
-- [ ] CHK014 - Is the window identifier (`voice-island`) consistently named across application manifests, Tauri configs, and KWin rule contracts? [Consistency, Spec §FR-007]
+- [ ] CHK014 - Is the window identifier (`mavis`) consistently named across application manifests, Tauri configs, and KWin rule contracts? [Consistency, Spec §FR-007]
 
 ---
 

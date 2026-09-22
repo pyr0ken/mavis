@@ -1,4 +1,4 @@
-# Implementation Plan: Pixel-Perfect High-Fidelity Voice Island Overlay
+# Implementation Plan: Pixel-Perfect High-Fidelity Mavis Overlay
 
 **Feature Directory**: `specs/002-pixel-perfect-voice-overlay`
 **Created**: 2026-09-20

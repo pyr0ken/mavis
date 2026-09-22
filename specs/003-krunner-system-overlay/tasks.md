@@ -35,7 +35,7 @@ Phase 7: Polish, KWin Rules Integration & Verification (T023-T026) [COMPLETED]
 ## Phase 1: Setup & Configuration
 
 - [x] T001 Verify Tauri 2.0 and frontend build environment in `package.json` and `src-tauri/Cargo.toml`
-- [x] T002 [P] Set application ID to `voice-island` and title to `Voice Island` in `src-tauri/tauri.conf.json`
+- [x] T002 [P] Set application ID to `mavis` and title to `Mavis` in `src-tauri/tauri.conf.json`
 - [x] T003 [P] Ensure native window dimensions (`width: 1100, height: 720, transparent: true, decorations: false, alwaysOnTop: true, skipTaskbar: true`) are set in `src-tauri/tauri.conf.json`
 
 ---
@@ -51,7 +51,7 @@ Phase 7: Polish, KWin Rules Integration & Verification (T023-T026) [COMPLETED]
 
 ## Phase 3: User Story 1 - Multi-Workspace Persistence (Sticky Across Desktops) [P1]
 
-**Goal**: Keep Voice Island permanently fixed at the top-center of the screen across all virtual desktops / workspaces, exactly like KRunner.
+**Goal**: Keep Mavis permanently fixed at the top-center of the screen across all virtual desktops / workspaces, exactly like KRunner.
 
 - [x] T008 [US1] Implement primary monitor detection and centered top coordinates in `src-tauri/src/lib.rs`
 - [x] T009 [US1] Apply `window.set_visible_on_all_workspaces(true)` and `window.set_always_on_top(true)` on window initialization in `src-tauri/src/lib.rs`
@@ -62,10 +62,10 @@ Phase 7: Polish, KWin Rules Integration & Verification (T023-T026) [COMPLETED]
 
 ## Phase 4: User Story 2 - System Module Identity & Zero Taskbar Clutter [P1]
 
-**Goal**: Run Voice Island as an ambient, borderless system overlay with zero footprint in taskbar, dock, or Alt+Tab switcher.
+**Goal**: Run Mavis as an ambient, borderless system overlay with zero footprint in taskbar, dock, or Alt+Tab switcher.
 
 - [x] T012 [US2] Enforce `skip_taskbar: true` and `decorations: false` in native window creation in `src-tauri/tauri.conf.json`
-- [x] T013 [P] [US2] Set Linux WM class and Wayland app_id to `voice-island` in `src-tauri/src/main.rs` and `src-tauri/tauri.conf.json`
+- [x] T013 [P] [US2] Set Linux WM class and Wayland app_id to `mavis` in `src-tauri/src/main.rs` and `src-tauri/tauri.conf.json`
 - [x] T014 [US2] Verify absence of application entry in system taskbar, window pagers, and Alt+Tab switchers in `src-tauri/src/lib.rs`
 
 ---
@@ -94,7 +94,7 @@ Phase 7: Polish, KWin Rules Integration & Verification (T023-T026) [COMPLETED]
 
 ## Phase 7: Polish, KWin Rules Integration & Multi-Workspace Quality Verification
 
-- [x] T023 [P] Author declarative KWin Window Rule template and installation instructions in `scripts/kwin-rules/voice-island.kwinrule`
+- [x] T023 [P] Author declarative KWin Window Rule template and installation instructions in `scripts/kwin-rules/mavis.kwinrule`
 - [x] T024 Perform multi-workspace switching benchmark across 4 virtual desktops to confirm zero visual flicker or displacement
 - [x] T025 Audit idle background resource consumption to verify `< 35MB RAM` and `< 0.1% CPU`
 - [x] T026 Execute full verification against all scenarios in `specs/003-krunner-system-overlay/quickstart.md`

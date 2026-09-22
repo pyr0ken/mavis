@@ -17,7 +17,7 @@
 
 ## 2. Setup & Development Server
 
-From the repository root (`/home/omid/Code/ai/voice-island`):
+From the repository root:
 
 ```bash
 # 1. Install frontend dependencies
@@ -35,7 +35,7 @@ npm run tauri dev
 1. Launch the Tauri application (`npm run tauri dev`).
 2. Open the floating overlay with `Ctrl + Alt` (or click on the notch).
 3. Switch virtual desktops in KDE Plasma (e.g. `Ctrl + F1`, `Ctrl + F2`, or touchpad 4-finger swipe).
-4. **Assert**: The Voice Island top notch remains perfectly anchored at top-center on the new virtual desktop without flickering or disappearing.
+4. **Assert**: The Mavis top notch remains perfectly anchored at top-center on the new virtual desktop without flickering or disappearing.
 
 ### Scenario B: Active Voice/Card State Continuity
 1. Trigger the Gmail or Calendar Action Card (Hotkey `1` or `2`).
@@ -43,9 +43,9 @@ npm run tauri dev
 3. **Assert**: The card content, typewriter animation, and interactive buttons remain active and fully editable across all desktops.
 
 ### Scenario C: Taskbar & Alt+Tab Exclusion
-1. With Voice Island running, open the system task manager / panel dock.
+1. With Mavis running, open the system task manager / panel dock.
 2. Press `Alt + Tab` repeatedly to cycle through open applications.
-3. **Assert**: Voice Island does NOT appear as a standard application window or taskbar tile.
+3. **Assert**: Mavis does NOT appear as a standard application window or taskbar tile.
 
 ### Scenario D: Click-Through & Outside Blur Dismissal
 1. While the notch is in idle/collapsed mode, click a browser tab or menu bar directly underneath the transparent window bounds.

@@ -1,4 +1,4 @@
-# Technical Research: Pixel-Perfect High-Fidelity Voice Island Overlay
+# Technical Research: Pixel-Perfect High-Fidelity Mavis Overlay
 
 **Feature**: `specs/002-pixel-perfect-voice-overlay`
 **Created**: 2026-09-20

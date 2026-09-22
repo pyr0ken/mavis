@@ -78,7 +78,7 @@ Emitted by the Rust backend whenever the global system shortcut (`Ctrl + Alt + E
     "windows": [
       {
         "label": "main",
-        "title": "Voice Island",
+        "title": "Mavis",
         "width": 600,
         "height": 260,
         "x": null,

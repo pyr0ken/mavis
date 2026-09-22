@@ -19,7 +19,7 @@ We implement a robust, multi-tier window strategy in Tauri 2.0 / Rust:
    - `window.set_always_on_top(true)`: Keeps the window above standard application windows.
    - `window.set_skip_taskbar(true)`: Removes the window from taskbars, docks, and panel pagers.
 2. **Tier 2 (KWin Rules & Stable Window Identification)**:
-   - Setting a deterministic application ID (`voice-island`) and window class (`wm_class: "voice-island"`).
+   - Setting a deterministic application ID (`mavis`) and window class (`wm_class: "mavis"`).
    - Providing automated or declarative KWin Window Rule compatibility for KDE Plasma Wayland sessions where compositors enforce strict workspace isolation.
 3. **Tier 3 (State Continuity Across Desktops)**:
    - Ensuring that ongoing voice input, FFT audio visualization, and active Action Cards do not pause or drop state when a workspace switch event occurs.

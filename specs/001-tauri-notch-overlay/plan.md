@@ -57,7 +57,7 @@
 ## 4. Deliverables & File Mapping
 
 ```
-voice-island/
+mavis/
 ├── src-tauri/
 │   ├── Cargo.toml
 │   ├── tauri.conf.json

@@ -14,12 +14,12 @@ Sync Impact Report:
   - Development Workflow & Quality Gates
   - Governance
 - Deferred items:
-  - Feature specification for Voice Island Core Engine & Tauri 2.0 scaffold (`/speckit-specify`)
+  - Feature specification for Mavis Core Engine & Tauri 2.0 scaffold (`/speckit-specify`)
   - Integration of Streaming STT (Speech-to-Text) Audio Pipeline
   - Implementation of Structured Action Cards (Gmail, Calendar, Screen Context)
 -->
 
-# Voice Island Constitution
+# Mavis Constitution
 
 ## Core Principles
 
@@ -89,7 +89,7 @@ The visual identity MUST adhere to ultra-high-end dark mode aesthetics (Linear a
 
 ## Governance
 
-- This Constitution is the binding architectural and quality contract for the `voice-island` project.
+- This Constitution is the binding architectural and quality contract for the `mavis` project.
 - Any modification to core principles, architectural boundaries, or performance budgets requires an explicit version bump and human ratification.
 - Feature planning and implementation MUST strictly follow the Spec Kit workflow (`/speckit-specify` -> `/speckit-plan` -> `/speckit-tasks` -> `/speckit-implement`).
 

@@ -22,7 +22,7 @@
 
 As a desktop user working across various applications, I want to press a global system shortcut (`Ctrl + Alt + Enter`) from anywhere so that the floating voice assistant notch instantly and smoothly drops down from the top edge of my primary screen without stealing exclusive focus or disrupting my workflow.
 
-**Why this priority**: Instant, system-wide activation is the foundational interaction pattern of Voice Island; without global hotkey handling, the overlay cannot serve as an ambient desktop assistant.
+**Why this priority**: Instant, system-wide activation is the foundational interaction pattern of Mavis; without global hotkey handling, the overlay cannot serve as an ambient desktop assistant.
 
 **Independent Test**: Can be tested independently by running other desktop applications (browser, terminal, editor) and pressing `Ctrl + Alt + Enter`, verifying that the overlay triggers and toggles state reliably regardless of which window is active.
 
@@ -39,7 +39,7 @@ As a desktop user working across various applications, I want to press a global 
 
 As a user interacting with the notch, I want the expansion and retraction to follow physically modeled spring dynamics (elastic overshoot, smooth deceleration, and seamless concave corner fillets) so that the interface feels natural, organic, and premium (matching Apple Dynamic Island / VoiceOS quality).
 
-**Why this priority**: The core delight and visual identity of Voice Island depends entirely on fluid, stutter-free spring motion and hardware-notch alignment.
+**Why this priority**: The core delight and visual identity of Mavis depends entirely on fluid, stutter-free spring motion and hardware-notch alignment.
 
 **Independent Test**: Can be tested by triggering repeated open/close cycles at varying frame rates (60Hz / 120Hz) and asserting that no layout shifts, hard jumps, or render hitches occur.
 

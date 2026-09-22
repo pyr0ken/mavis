@@ -1,4 +1,4 @@
-# Quickstart & Verification Guide: Voice Island High-Fidelity Overlay
+# Quickstart & Verification Guide: Mavis High-Fidelity Overlay
 
 **Feature**: `specs/002-pixel-perfect-voice-overlay`
 **Created**: 2026-09-20

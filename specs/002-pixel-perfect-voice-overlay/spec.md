@@ -1,4 +1,4 @@
-# Feature Specification: Pixel-Perfect High-Fidelity Voice Island Overlay & Action Cards
+# Feature Specification: Pixel-Perfect High-Fidelity Mavis Overlay & Action Cards
 
 **Feature Directory**: `specs/002-pixel-perfect-voice-overlay`
 
@@ -23,7 +23,7 @@
 
 ## Executive Summary & Video Reverse-Engineering Breakdown
 
-A comprehensive frame-by-frame analysis of the 28.75s reference screencast reveals that **Voice Island** operates as a sophisticated **multi-surface dynamic operating system HUD**, consisting of three distinct visual planes rather than a single morphing pill:
+A comprehensive frame-by-frame analysis of the 28.75s reference screencast reveals that **Mavis** operates as a sophisticated **multi-surface dynamic operating system HUD**, consisting of three distinct visual planes rather than a single morphing pill:
 
 1. **Hardware-Anchored Top Notch (Bezel Shell)**:
    - Always anchored to `top: 0, left: 50%` with concave shoulder fillets (`border-radius` transitions into top menu bar).
@@ -75,7 +75,7 @@ A comprehensive frame-by-frame analysis of the 28.75s reference screencast revea
 
 ### User Story 1 - Multi-Surface Notch & Card Morphing (Priority: P1)
 
-As a desktop user triggering Voice Island, I want the top notch to expand smoothly and deploy a crisp, high-contrast action card below it, so that I can clearly view and interact with generated tasks (emails, calendar events, summaries) without visual muddiness or cramped layouts.
+As a desktop user triggering Mavis, I want the top notch to expand smoothly and deploy a crisp, high-contrast action card below it, so that I can clearly view and interact with generated tasks (emails, calendar events, summaries) without visual muddiness or cramped layouts.
 
 **Why this priority**: Solves the primary visual defect reported by the user: lack of clarity, small size, blurry rainbow artifacts, and absence of the second-stage voice agent panel.
 

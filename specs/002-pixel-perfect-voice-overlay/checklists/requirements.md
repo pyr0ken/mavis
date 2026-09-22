@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Pixel-Perfect High-Fidelity Voice Island Overlay
+# Specification Quality Checklist: Pixel-Perfect High-Fidelity Mavis Overlay
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-09-20

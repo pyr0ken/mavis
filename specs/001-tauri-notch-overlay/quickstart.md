@@ -22,7 +22,7 @@
 ### 1. Web Preview & Rapid UI Iteration
 Run the standalone web preview with instant hot-reloading:
 ```bash
-cd /home/omid/Code/ai/voice-island
+cd mavis
 npm install
 npm run dev
 ```
@@ -55,7 +55,7 @@ npm run tauri dev
 1. Keep the application running in background idle mode.
 2. In terminal, run:
    ```bash
-   ps aux | grep voice-island | awk '{print $6/1024 " MB"}'
+   ps aux | grep mavis | awk '{print $6/1024 " MB"}'
    ```
 3. **Verify**: Total memory footprint is strictly **< 35MB RAM**.
 4. Trigger 20 rapid open/close animations.

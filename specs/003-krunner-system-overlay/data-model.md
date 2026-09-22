@@ -15,8 +15,8 @@ Represents the native window configuration applied at runtime by the Tauri 2.0 R
 | Field | Type | Description | Default |
 |:---|:---|:---|:---|
 | `label` | `String` | Window identifier handle | `"main"` |
-| `title` | `String` | Window title / class identifier | `"voice-island"` |
-| `app_id` | `String` | Wayland application ID / WM class | `"voice-island"` |
+| `title` | `String` | Window title / class identifier | `"mavis"` |
+| `app_id` | `String` | Wayland application ID / WM class | `"mavis"` |
 | `width` | `f64` | Native window canvas width | `1100.0` |
 | `height` | `f64` | Native window canvas height | `720.0` |
 | `always_on_top` | `bool` | Keep window above standard app windows | `true` |

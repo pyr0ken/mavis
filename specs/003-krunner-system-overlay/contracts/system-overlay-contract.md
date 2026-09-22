@@ -59,7 +59,7 @@ Dynamically toggles whether the transparent canvas passes mouse clicks to backgr
 pub fn set_cursor_click_through(window: WebviewWindow, ignore: bool) -> Result<(), String>
 ```
 **Parameters:**
-- `ignore`: `true` to allow clicks to pass through to apps underneath; `false` to capture pointer events inside the Voice Island container.
+- `ignore`: `true` to allow clicks to pass through to apps underneath; `false` to capture pointer events inside the Mavis container.
 
 ---
 
@@ -90,9 +90,9 @@ pub fn set_cursor_click_through(window: WebviewWindow, ignore: bool) -> Result<(
 For environments requiring explicit KWin rule persistence (`~/.config/kwinrulesrc`):
 
 ```ini
-[Voice Island KRunner Overlay]
-Description=Voice Island KRunner-Style Sticky Overlay
-wmclass=voice-island
+[Mavis KRunner Overlay]
+Description=Mavis KRunner-Style Sticky Overlay
+wmclass=mavis
 wmclasscomplete=true
 wmclassmatch=1
 desktops=all

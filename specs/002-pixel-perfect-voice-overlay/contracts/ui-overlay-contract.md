@@ -1,4 +1,4 @@
-# UI Component & State Contract: Voice Island High-Fidelity Overlay
+# UI Component & State Contract: Mavis High-Fidelity Overlay
 
 **Feature**: `specs/002-pixel-perfect-voice-overlay`
 **Created**: 2026-09-20

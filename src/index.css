@@ -11,6 +11,16 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  ::selection {
+    background-color: rgba(56, 189, 248, 0.45) !important;
+    color: #ffffff !important;
+  }
+
+  ::-moz-selection {
+    background-color: rgba(56, 189, 248, 0.45) !important;
+    color: #ffffff !important;
+  }
+
   body {
     margin: 0;
     padding: 0;
@@ -18,6 +28,162 @@
     overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
+}
+
+/* Custom Scrollbar */
+.custom-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Premium KaTeX Math Formula Display & Syntax Styling */
+.katex-display {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  margin: 1.1rem 0 !important;
+  padding: 1rem 1.4rem !important;
+  background: linear-gradient(180deg, rgba(22, 26, 38, 0.9) 0%, rgba(12, 14, 22, 0.95) 100%) !important;
+  border: 1px solid rgba(56, 189, 248, 0.15) !important;
+  border-radius: 16px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 24px -4px rgba(0, 0, 0, 0.5) !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  direction: ltr !important;
+  text-align: center !important;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.katex-display:hover {
+  border-color: rgba(56, 189, 248, 0.3) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 28px -4px rgba(0, 0, 0, 0.6), 0 0 24px -6px rgba(56, 189, 248, 0.2) !important;
+}
+
+.katex {
+  font-size: 1.12em !important;
+  color: #f8fafc !important;
+  text-rendering: geometricPrecision;
+  letter-spacing: 0.015em;
+  direction: ltr !important;
+  unicode-bidi: isolate;
+}
+
+/* Inline Math Formatting */
+p > .katex, li > .katex {
+  font-size: 1.05em !important;
+  color: #f1f5f9 !important;
+  padding: 0.12em 0.38em;
+  margin: 0 0.15em;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: inline-block;
+  vertical-align: middle;
+  line-height: 1.2;
+}
+
+/* Math Operators & Relational Highlighting */
+.katex .mop {
+  color: #38bdf8 !important; /* Sky cyan for log, sin, cos, sum, int, lim */
+  font-weight: 500;
+}
+
+.katex .mrel {
+  color: #a78bfa !important; /* Purple/Violet for =, <, >, \approx, \in, \le, \ge, \to */
+}
+
+.katex .mbin {
+  color: #38bdf8 !important; /* Sky cyan for +, -, \times, \cdot, \pm, \div */
+}
+
+.katex .mopen, .katex .mclose, .katex .mpunct {
+  color: #cbd5e1 !important; /* Slate for parentheses, brackets, braces, commas */
+}
+
+.katex .frac-line {
+  border-bottom-color: rgba(255, 255, 255, 0.5) !important;
+  border-bottom-width: 1.5px !important;
+}
+
+.katex .sqrt > .sqrt-sign {
+  color: #38bdf8 !important;
+}
+
+.katex .sqrt > .vlist-t > .vlist-r > .vlist > span > .svg-align {
+  color: #38bdf8 !important;
+}
+
+.katex .delimsizing {
+  color: #94a3b8 !important;
+}
+
+.katex .mtable .arraycolsep {
+  padding: 0 0.45em !important;
+}
+
+/* Prism Code Syntax Highlights */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #64748b;
+  font-style: italic;
+}
+
+.token.punctuation {
+  color: #94a3b8;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: #f43f5e;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: #34d399;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: #38bdf8;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: #c084fc;
+}
+
+.token.function,
+.token.class-name {
+  color: #60a5fa;
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+  color: #fbbf24;
 }
 
 /* Apple Intelligence Electric Cyan/Blue Rim Light */

@@ -40,7 +40,8 @@ export class ReActEngine {
   public async runConversationTurn(
     userPrompt: string,
     history: ChatMessage[],
-    callbacks: ReActEngineCallbacks
+    callbacks: ReActEngineCallbacks,
+    modelName: string = 'antigravity'
   ) {
     this.isCancelled = false;
     callbacks.onThinkingChange(true);
@@ -86,7 +87,7 @@ Context & Directives:
 
       try {
         const payload = {
-          model: 'antigravity',
+          model: modelName,
           messages: messagesPayload,
           tools: SYSTEM_TOOLS,
           tool_choice: 'auto',

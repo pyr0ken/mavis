@@ -356,7 +356,7 @@ export const ChatStreamCard: React.FC<ChatStreamCardProps> = ({
       {/* Bottom Footer / Actions */}
       <div className="flex items-center justify-between px-6 py-3 bg-[#1A1C24] border-t border-white/[0.08] rounded-b-[22px] select-none">
         <span className="text-[11px] text-gray-500 font-mono">
-          Press Space or Esc to dismiss
+          Press Ctrl+Space to toggle
         </span>
 
         <button

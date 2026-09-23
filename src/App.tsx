@@ -23,7 +23,6 @@ export const App: React.FC = () => {
   const [userPrompt, setUserPrompt] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [isAutoDemo, setIsAutoDemo] = useState(false);
   
   const stateRef = useRef<IslandState>(state);
   stateRef.current = state;
@@ -335,6 +334,19 @@ export const App: React.FC = () => {
   // Direct Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl + Space: Toggle between expanded action card and idle notch
+      if (e.ctrlKey && (e.key === ' ' || e.code === 'Space')) {
+        e.preventDefault();
+        e.stopPropagation();
+        setState((prev) => (prev === 'action' ? 'idle' : 'action'));
+        if (stateRef.current === 'action') {
+          setTimeout(() => {
+            notchInputRef.current?.focus();
+          }, 50);
+        }
+        return;
+      }
+
       const target = e.target as HTMLElement | null;
       const isTypingInNotch = target === notchInputRef.current;
       const isOtherFormInput =
@@ -343,10 +355,6 @@ export const App: React.FC = () => {
         !isTypingInNotch;
 
       if (isOtherFormInput) {
-        if (e.key === 'Escape') {
-          target.blur();
-          setState('idle');
-        }
         return;
       }
 
@@ -366,59 +374,11 @@ export const App: React.FC = () => {
         notchInputRef.current?.focus();
         return;
       }
-
-      // Shortcut triggers when prompt is empty
-      if (e.key === ' ' || e.code === 'Space') {
-        e.preventDefault();
-        e.stopPropagation();
-        setState((prev) => (prev === 'action' ? 'idle' : 'action'));
-      } else if (e.key.toLowerCase() === 'd' || e.key === 'Tab') {
-        e.preventDefault();
-        setIsAutoDemo((prev) => !prev);
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        setIsAutoDemo(false);
-        setUserPrompt('');
-        setState('hidden');
-      }
     };
 
     window.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
   }, []);
-
-  // Auto Demo Loop
-  useEffect(() => {
-    if (!isAutoDemo) return;
-
-    let timer: NodeJS.Timeout;
-    const runDemoStep = () => {
-      const curState = stateRef.current;
-
-      if (curState === 'idle') {
-        setState('typing');
-        setUserPrompt('Summarize the workspace tasks');
-        timer = setTimeout(() => {
-          setState('action');
-        }, 1400);
-      } else if (curState === 'action') {
-        timer = setTimeout(() => {
-          setState('success');
-        }, 2800);
-      } else if (curState === 'success') {
-        timer = setTimeout(() => {
-          setUserPrompt('');
-          setState('idle');
-        }, 1800);
-      }
-    };
-
-    const interval = setInterval(runDemoStep, 1000);
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timer);
-    };
-  }, [isAutoDemo]);
 
   const isExpanded = state === 'action' || state === 'listening';
 

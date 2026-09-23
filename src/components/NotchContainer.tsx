@@ -212,11 +212,6 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
                       onPromptSubmit?.(text);
                     }
                   }
-                } else if (e.key === 'Escape') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onPromptChange?.('');
-                  activeInputRef.current?.blur();
                 }
               }}
               rows={clampedLines}

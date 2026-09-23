@@ -3,6 +3,8 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, LogicalPosition, LogicalSize, Manager, WebviewWindow};
 
+pub mod db;
+
 #[cfg(target_os = "linux")]
 use gtk::prelude::*;
 
@@ -345,6 +347,178 @@ fn set_cursor_click_through(window: WebviewWindow, ignore: bool) -> Result<(), S
     Ok(())
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct ShellExecResult {
+    pub stdout: String,
+    pub stderr: String,
+    pub exit_code: i32,
+    pub duration_ms: u64,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct FileSearchResult {
+    pub matches: Vec<String>,
+    pub total_found: usize,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct FileReadResult {
+    pub content: String,
+    pub total_lines: usize,
+    pub truncated: bool,
+}
+
+#[tauri::command]
+async fn execute_shell_command(command: String) -> Result<ShellExecResult, String> {
+    let start = std::time::Instant::now();
+    let output = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(&command)
+        .output()
+        .map_err(|e| format!("Failed to execute shell command: {}", e))?;
+
+    let duration_ms = start.elapsed().as_millis() as u64;
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let exit_code = output.status.code().unwrap_or(-1);
+
+    Ok(ShellExecResult {
+        stdout,
+        stderr,
+        exit_code,
+        duration_ms,
+    })
+}
+
+#[tauri::command]
+fn search_workspace_files(
+    pattern: String,
+    path: Option<String>,
+    max_results: Option<usize>,
+) -> Result<FileSearchResult, String> {
+    let search_root = path.unwrap_or_else(|| ".".to_string());
+    let max = max_results.unwrap_or(50);
+    let mut matches = Vec::new();
+
+    fn walk_dir(
+        dir: &std::path::Path,
+        pattern: &str,
+        matches: &mut Vec<String>,
+        max: usize,
+    ) {
+        if matches.len() >= max {
+            return;
+        }
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                let file_name = entry.file_name().to_string_lossy().to_string();
+                if file_name.starts_with('.') || file_name == "node_modules" || file_name == "target" || file_name == "dist" {
+                    continue;
+                }
+                if file_name.contains(pattern) || p.to_string_lossy().contains(pattern) {
+                    matches.push(p.to_string_lossy().to_string());
+                    if matches.len() >= max {
+                        return;
+                    }
+                }
+                if p.is_dir() {
+                    walk_dir(&p, pattern, matches, max);
+                }
+            }
+        }
+    }
+
+    walk_dir(std::path::Path::new(&search_root), &pattern, &mut matches, max);
+    let total_found = matches.len();
+
+    Ok(FileSearchResult {
+        matches,
+        total_found,
+    })
+}
+
+#[tauri::command]
+fn read_workspace_file(path: String, max_lines: Option<usize>) -> Result<FileReadResult, String> {
+    let max = max_lines.unwrap_or(300);
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))?;
+    let lines: Vec<&str> = text.lines().collect();
+    let total_lines = lines.len();
+    let truncated = total_lines > max;
+    let selected_lines = if truncated {
+        &lines[..max]
+    } else {
+        &lines[..]
+    };
+    let content = selected_lines.join("\n");
+
+    Ok(FileReadResult {
+        content,
+        total_lines,
+        truncated,
+    })
+}
+
+#[tauri::command]
+fn get_user_profile() -> Result<std::collections::HashMap<String, String>, String> {
+    db::get_profile_map().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn set_user_profile_key(key: String, value: String) -> Result<(), String> {
+    db::set_profile_key(&key, &value).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn search_messages_fts(query: String, limit: Option<usize>) -> Result<Vec<db::FtsSearchResult>, String> {
+    db::search_messages(&query, limit.unwrap_or(20)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn save_session_message(
+    id: String,
+    session_id: String,
+    role: String,
+    content: String,
+    tool_calls: Option<String>,
+    tool_call_id: Option<String>,
+) -> Result<(), String> {
+    db::save_message(
+        &id,
+        &session_id,
+        &role,
+        &content,
+        tool_calls.as_deref(),
+        tool_call_id.as_deref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn call_model_api(
+    payload: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let res = client
+        .post("http://127.0.0.1:20128/v1/chat/completions")
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| format!("Network request to local gateway failed: {}", e))?;
+
+    if !res.status().is_success() {
+        let err_text = res.text().await.unwrap_or_else(|_| "Unknown gateway error".to_string());
+        return Err(format!("Gateway HTTP {}: {}", err_text, err_text));
+    }
+
+    let json_val = res
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("Failed to parse gateway response JSON: {}", e))?;
+
+    Ok(json_val)
+}
+
 fn now_millis() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -367,7 +541,15 @@ pub fn run() {
             set_cursor_click_through,
             update_input_region,
             set_keyboard_interactivity,
-            send_chat_stream
+            send_chat_stream,
+            execute_shell_command,
+            search_workspace_files,
+            read_workspace_file,
+            get_user_profile,
+            set_user_profile_key,
+            search_messages_fts,
+            save_session_message,
+            call_model_api
         ])
         .setup(|app| {
             let handle = app.handle().clone();

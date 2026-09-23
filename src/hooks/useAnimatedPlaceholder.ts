@@ -22,7 +22,12 @@ export const useAnimatedPlaceholder = ({
 
   useEffect(() => {
     if (!active || phrases.length === 0) {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      setCurrentText('');
+      setIsDeleting(false);
       return;
     }
 
@@ -58,5 +63,5 @@ export const useAnimatedPlaceholder = ({
     };
   }, [active, currentText, isDeleting, phraseIndex, phrases, typingSpeed, deletingSpeed, pauseDuration]);
 
-  return currentText;
+  return active ? currentText : '';
 };

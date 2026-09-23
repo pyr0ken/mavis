@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { ArrowRight, Copy, Check, RotateCcw } from 'lucide-react';
+import { Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -36,7 +36,7 @@ interface ChatStreamCardProps {
   onApproveTool?: (id: string) => void;
   onDenyTool?: (id: string) => void;
   onClearSession?: () => void;
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 const isRTLText = (text: string) => {
@@ -124,8 +124,6 @@ export const ChatStreamCard: React.FC<ChatStreamCardProps> = ({
   approvalRequest = null,
   onApproveTool,
   onDenyTool,
-  onClearSession,
-  onClose,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const bottomAnchorRef = useRef<HTMLDivElement | null>(null);
@@ -182,32 +180,18 @@ export const ChatStreamCard: React.FC<ChatStreamCardProps> = ({
       onClick={(e) => e.stopPropagation()}
       className="w-full h-full flex flex-col justify-between text-left select-text bg-transparent"
     >
-      {/* Top Status Strip: Live Tool / Thinking Pill & Session Reset */}
-      <div className="flex items-center justify-between px-6 pt-2 pb-1 select-none min-h-[32px]">
+      {/* Top Status Strip: Live Tool / Thinking Pill */}
+      <div className="flex items-center px-6 pt-2 pb-1 select-none min-h-[32px]">
         <div className="flex items-center gap-2">
           <LiveToolPill thinking={isThinking} activeTool={activeTool} />
         </div>
-
-        {messages.length > 0 && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onClearSession?.();
-            }}
-            title="Clear conversation session"
-            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-white/5 hover:bg-red-500/15 text-gray-400 hover:text-red-300 border border-white/10 hover:border-red-500/30 active:scale-95 transition-all text-xs font-medium cursor-pointer"
-          >
-            <RotateCcw className="w-3 h-3" />
-            <span>New Chat</span>
-          </button>
-        )}
       </div>
 
       {/* Main Conversation Canvas on Unified Obsidian Black */}
       <div
         ref={scrollRef}
         onMouseDown={handleMouseDown}
-        className={`flex-1 px-6 py-2 flex flex-col gap-3.5 overflow-y-auto custom-scroll ${
+        className={`flex-1 px-6 py-2 pb-4 flex flex-col gap-3.5 overflow-y-auto custom-scroll ${
           isMiddleMouseDown ? 'cursor-grab select-none' : ''
         }`}
       >
@@ -322,24 +306,6 @@ export const ChatStreamCard: React.FC<ChatStreamCardProps> = ({
           );
         })}
         <div ref={bottomAnchorRef} className="h-px w-full pointer-events-none" />
-      </div>
-
-      {/* Bottom Footer / Actions with Subtle 1px Hairline */}
-      <div className="flex items-center justify-between px-6 py-3 border-t border-white/10 bg-white/[0.02] select-none rounded-b-[28px]">
-        <span className="text-[11px] text-gray-500 font-mono">
-          Press Ctrl+Space to toggle
-        </span>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
-          className="inline-flex items-center gap-2 px-5 py-1.5 rounded-full bg-gradient-to-r from-[#2B7FFF] to-[#1E6FE8] hover:from-[#388BFF] hover:to-[#2B7FFF] active:scale-95 text-white font-semibold text-xs shadow-[0_4px_16px_rgba(43,127,255,0.4)] transition-all cursor-pointer"
-        >
-          <span>Done</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </button>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { ArrowRight, RotateCcw, Copy, Check } from 'lucide-react';
+import { ArrowRight, Copy, Check, RotateCcw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -7,7 +7,6 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import Prism from 'prismjs';
 
-// Load popular language syntaxes for Prism
 import 'prismjs/components/prism-javascript';
 import 'prismjs/components/prism-typescript';
 import 'prismjs/components/prism-jsx';
@@ -21,7 +20,9 @@ import 'prismjs/components/prism-sql';
 import 'prismjs/components/prism-markdown';
 import 'prismjs/components/prism-latex';
 
-import { ChatMessage } from '../types/island';
+import { ChatMessage, ToolExecutionState, ToolApprovalRequest } from '../types/island';
+import { LiveToolPill } from './LiveToolPill';
+import { ToolApprovalBanner } from './ToolApprovalBanner';
 
 export type { ChatMessage };
 
@@ -29,6 +30,11 @@ interface ChatStreamCardProps {
   active: boolean;
   messages: ChatMessage[];
   isStreaming?: boolean;
+  isThinking?: boolean;
+  activeTool?: ToolExecutionState | null;
+  approvalRequest?: ToolApprovalRequest | null;
+  onApproveTool?: (id: string) => void;
+  onDenyTool?: (id: string) => void;
   onClearSession?: () => void;
   onClose: () => void;
 }
@@ -38,26 +44,19 @@ const isRTLText = (text: string) => {
   return rtlRegex.test(text);
 };
 
-// Comprehensive LaTeX preprocessor for both math formulas and raw LaTeX document structures
 const preprocessLaTeX = (content: string) => {
   if (!content) return '';
   let text = content;
 
-  // If the model outputs a raw LaTeX document structure (e.g. \documentclass ... \begin{document} ... \end{document})
-  // Wrap it in a ```latex code block so Prism syntax-highlights it cleanly with a copy button
   if (text.includes('\\documentclass') && !text.includes('```')) {
     text = text.replace(/(\\documentclass[\s\S]*?\\end\{document\})/g, '```latex\n$1\n```');
   }
 
-  // Convert double-escaped or standard \[ ... \] to $$...$$
   text = text.replace(/\\\\\[([\s\S]*?)\\\\\]/g, (_, math) => `\n$$\n${math.trim()}\n$$\n`);
   text = text.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => `\n$$\n${math.trim()}\n$$\n`);
-
-  // Convert double-escaped or standard \( ... \) to $...$
   text = text.replace(/\\\\\(([\s\S]*?)\\\\\)/g, (_, math) => `$${math.trim()}$`);
   text = text.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => `$${math.trim()}$`);
 
-  // Convert standalone math environments to $$...$$ blocks
   text = text.replace(/\\begin\{equation\*?\}([\s\S]*?)\\end\{equation\*?\}/g, (_, math) => `\n$$\n${math.trim()}\n$$\n`);
   text = text.replace(/\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}/g, (_, math) => `\n$$\n\\begin{aligned}${math}\\end{aligned}\n$$\n`);
   text = text.replace(/\\begin\{gather\*?\}([\s\S]*?)\\end\{gather\*?\}/g, (_, math) => `\n$$\n\\begin{gathered}${math}\\end{gathered}\n$$\n`);
@@ -66,7 +65,6 @@ const preprocessLaTeX = (content: string) => {
   return text;
 };
 
-// Syntax-Highlighted Code Block Component with Copy Action & Header Badge
 const CodeBlock: React.FC<{ language?: string; value: string }> = ({ language = 'text', value }) => {
   const [copied, setCopied] = useState(false);
 
@@ -89,7 +87,6 @@ const CodeBlock: React.FC<{ language?: string; value: string }> = ({ language = 
 
   return (
     <div className="my-3 rounded-xl border border-white/10 bg-[#080a10] overflow-hidden shadow-lg select-text text-left" dir="ltr">
-      {/* Code Header Bar */}
       <div className="flex items-center justify-between px-3.5 py-1.5 bg-white/[0.04] border-b border-white/[0.06] select-none">
         <span className="text-[11px] font-mono text-gray-400 font-semibold lowercase">
           {language || 'code'}
@@ -112,7 +109,6 @@ const CodeBlock: React.FC<{ language?: string; value: string }> = ({ language = 
         </button>
       </div>
 
-      {/* Code Body */}
       <pre className="p-3.5 overflow-x-auto text-xs font-mono text-gray-200 leading-relaxed custom-scroll">
         <code dangerouslySetInnerHTML={{ __html: highlightedHtml }} />
       </pre>
@@ -123,30 +119,31 @@ const CodeBlock: React.FC<{ language?: string; value: string }> = ({ language = 
 export const ChatStreamCard: React.FC<ChatStreamCardProps> = ({
   messages,
   isStreaming = false,
+  isThinking = false,
+  activeTool = null,
+  approvalRequest = null,
+  onApproveTool,
+  onDenyTool,
   onClearSession,
   onClose,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const bottomAnchorRef = useRef<HTMLDivElement | null>(null);
 
-  // Middle Click Drag-to-Scroll State
   const [isMiddleMouseDown, setIsMiddleMouseDown] = useState(false);
   const middleDragStartY = useRef(0);
   const middleDragStartScrollTop = useRef(0);
 
-  // Auto-scroll to bottom on incoming stream tokens
   useEffect(() => {
     if (bottomAnchorRef.current) {
       bottomAnchorRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     } else if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isStreaming]);
+  }, [messages, isStreaming, isThinking, activeTool]);
 
-  // Middle Click Mouse Scroll Handlers
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button === 1) {
-      // Middle Click (Scroll Wheel Button)
       e.preventDefault();
       setIsMiddleMouseDown(true);
       middleDragStartY.current = e.clientY;
@@ -183,48 +180,14 @@ export const ChatStreamCard: React.FC<ChatStreamCardProps> = ({
   return (
     <div
       onClick={(e) => e.stopPropagation()}
-      className="w-full h-full flex flex-col justify-between text-left select-text bg-[#16181F]/95"
+      className="w-full h-full flex flex-col justify-between text-left select-text bg-transparent"
     >
-      {/* Header Bar */}
-      <div className="flex items-center justify-between px-6 py-3.5 bg-[#1F222B] border-b border-white/[0.08] rounded-t-[22px] select-none">
-        <div className="flex items-center gap-2.5">
-          {/* Frameless Radiant Mavis Intelligence Orb */}
-          <div className="relative w-5 h-5 flex items-center justify-center shrink-0">
-            {/* Ambient colorful backlight aura */}
-            <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-sky-400 via-indigo-500 to-fuchsia-500 blur-[5px] opacity-75 animate-pulse" />
-            
-            {/* Vector Intelligence Glyph */}
-            <svg
-              viewBox="0 0 24 24"
-              className="w-5 h-5 relative z-10 drop-shadow-[0_0_8px_rgba(56,189,248,0.85)]"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <defs>
-                <linearGradient id="mavis-header-grad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor="#38BDF8" />
-                  <stop offset="45%" stopColor="#818CF8" />
-                  <stop offset="100%" stopColor="#E879F9" />
-                </linearGradient>
-                <linearGradient id="mavis-header-core" x1="8" y1="8" x2="16" y2="16" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor="#FFFFFF" />
-                  <stop offset="100%" stopColor="#BAE6FD" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M12 2C12 7.52285 7.52285 12 2 12C7.52285 12 12 16.4772 12 22C12 16.4772 16.4772 12 22 12C16.4772 12 12 7.52285 12 2Z"
-                fill="url(#mavis-header-grad)"
-              />
-              <circle cx="12" cy="12" r="2.75" fill="url(#mavis-header-core)" />
-            </svg>
-          </div>
-
-          <span className="text-sm font-semibold text-white tracking-wide">
-            Mavis Intelligence
-          </span>
+      {/* Top Status Strip: Live Tool / Thinking Pill & Session Reset */}
+      <div className="flex items-center justify-between px-6 pt-2 pb-1 select-none min-h-[32px]">
+        <div className="flex items-center gap-2">
+          <LiveToolPill thinking={isThinking} activeTool={activeTool} />
         </div>
 
-        {/* Clear / Reset Session Button */}
         {messages.length > 0 && (
           <button
             onClick={(e) => {
@@ -232,7 +195,7 @@ export const ChatStreamCard: React.FC<ChatStreamCardProps> = ({
               onClearSession?.();
             }}
             title="Clear conversation session"
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/5 hover:bg-red-500/15 text-gray-400 hover:text-red-300 border border-white/10 hover:border-red-500/30 active:scale-95 transition-all text-xs font-medium cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-white/5 hover:bg-red-500/15 text-gray-400 hover:text-red-300 border border-white/10 hover:border-red-500/30 active:scale-95 transition-all text-xs font-medium cursor-pointer"
           >
             <RotateCcw className="w-3 h-3" />
             <span>New Chat</span>
@@ -240,15 +203,25 @@ export const ChatStreamCard: React.FC<ChatStreamCardProps> = ({
         )}
       </div>
 
-      {/* Main Conversation Stream Area with Middle-Click Scroll */}
+      {/* Main Conversation Canvas on Unified Obsidian Black */}
       <div
         ref={scrollRef}
         onMouseDown={handleMouseDown}
-        className={`flex-1 px-6 py-4 flex flex-col gap-3.5 overflow-y-auto custom-scroll ${
+        className={`flex-1 px-6 py-2 flex flex-col gap-3.5 overflow-y-auto custom-scroll ${
           isMiddleMouseDown ? 'cursor-grab select-none' : ''
         }`}
       >
+        {/* Inline Security Approval Banner for Mutating Commands */}
+        {approvalRequest && onApproveTool && onDenyTool && (
+          <ToolApprovalBanner
+            request={approvalRequest}
+            onApprove={onApproveTool}
+            onDeny={onDenyTool}
+          />
+        )}
+
         {messages.map((msg) => {
+          if (msg.role === 'system' || msg.role === 'tool') return null;
           const isUser = msg.role === 'user';
           const isRtl = isRTLText(msg.content);
           const normalizedContent = preprocessLaTeX(msg.content);
@@ -273,11 +246,11 @@ export const ChatStreamCard: React.FC<ChatStreamCardProps> = ({
             );
           }
 
-          // Assistant Response Card with Full LaTeX Math, Syntax Highlighting & Beautiful Dividers
+          // Assistant Response Card on Deep Black Surface
           return (
             <div
               key={msg.id}
-              className="w-full bg-[#1A1D27]/90 border border-white/[0.08] rounded-2xl p-4 text-xs sm:text-sm text-gray-200 shadow-inner"
+              className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl p-4 text-xs sm:text-sm text-gray-200 shadow-inner"
             >
               <div
                 dir={isRTLText(msg.content) ? 'rtl' : 'ltr'}
@@ -296,7 +269,6 @@ export const ChatStreamCard: React.FC<ChatStreamCardProps> = ({
                       ul: ({ children }) => <ul className="list-disc list-inside mb-2.5 space-y-1 text-gray-300">{children}</ul>,
                       ol: ({ children }) => <ol className="list-decimal list-inside mb-2.5 space-y-1 text-gray-300">{children}</ol>,
                       li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-                      // Premium Divider Line (Gleaming Subtle Gradient with Glass Dot)
                       hr: () => (
                         <div className="relative my-4 flex items-center justify-center">
                           <div className="w-full h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent" />
@@ -349,12 +321,11 @@ export const ChatStreamCard: React.FC<ChatStreamCardProps> = ({
             </div>
           );
         })}
-        {/* Invisible anchor to ensure smooth auto-scrolling to bottom */}
         <div ref={bottomAnchorRef} className="h-px w-full pointer-events-none" />
       </div>
 
-      {/* Bottom Footer / Actions */}
-      <div className="flex items-center justify-between px-6 py-3 bg-[#1A1C24] border-t border-white/[0.08] rounded-b-[22px] select-none">
+      {/* Bottom Footer / Actions with Subtle 1px Hairline */}
+      <div className="flex items-center justify-between px-6 py-3 border-t border-white/10 bg-white/[0.02] select-none rounded-b-[28px]">
         <span className="text-[11px] text-gray-500 font-mono">
           Press Ctrl+Space to toggle
         </span>

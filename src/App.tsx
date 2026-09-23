@@ -1,16 +1,17 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
-import { IslandState, ActionCardType, ChatMessage } from './types/island';
+import {
+  IslandState,
+  ActionCardType,
+  ChatMessage,
+  ToolExecutionState,
+  ToolApprovalRequest,
+  GmailDraftIntent,
+  CalendarEventIntent,
+} from './types/island';
 import { NotchContainer } from './components/NotchContainer';
 import { useGlobalShortcut } from './hooks/useGlobalShortcut';
-
-interface ChatTokenEvent {
-  message_id: string;
-  token: string;
-  is_done: boolean;
-  error?: string;
-}
+import { ReActEngine } from './services/agent/reactEngine';
 
 export const App: React.FC = () => {
   // Query parameters for initial state support
@@ -23,58 +24,18 @@ export const App: React.FC = () => {
   const [userPrompt, setUserPrompt] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  
+  const [isThinking, setIsThinking] = useState(false);
+  const [activeTool, setActiveTool] = useState<ToolExecutionState | null>(null);
+  const [approvalRequest, setApprovalRequest] = useState<ToolApprovalRequest | null>(null);
+  const [gmailIntent, setGmailIntent] = useState<GmailDraftIntent | null>(null);
+  const [calendarIntent, setCalendarIntent] = useState<CalendarEventIntent | null>(null);
+
   const stateRef = useRef<IslandState>(state);
   stateRef.current = state;
   const lastToggleTime = useRef(0);
   const notchInputRef = useRef<HTMLTextAreaElement | null>(null);
-
-  // Listen to native Rust token stream events from Tauri backend
-  useEffect(() => {
-    let isCancelled = false;
-    let unlistenFn: (() => void) | null = null;
-
-    try {
-      listen<ChatTokenEvent>('chat-stream-event', (event) => {
-        if (isCancelled) return;
-        const { message_id, token, is_done, error } = event.payload;
-        if (error) {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === message_id ? { ...m, content: error } : m))
-          );
-          setIsStreaming(false);
-          return;
-        }
-
-        if (token) {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === message_id ? { ...m, content: m.content + token } : m
-            )
-          );
-        }
-
-        if (is_done) {
-          setIsStreaming(false);
-        }
-      }).then((fn) => {
-        if (isCancelled) {
-          fn();
-        } else {
-          unlistenFn = fn;
-        }
-      });
-    } catch {
-      // Ignored outside Tauri
-    }
-
-    return () => {
-      isCancelled = true;
-      if (unlistenFn) {
-        unlistenFn();
-      }
-    };
-  }, []);
+  const reactEngineRef = useRef<ReActEngine>(new ReActEngine());
+  const approvalResolverRef = useRef<((approved: boolean) => void) | null>(null);
 
   // Sync keyboard interactivity with OS Layer Shell / KWin
   const syncKeyboardInteractivity = useCallback((active: boolean) => {
@@ -169,6 +130,26 @@ export const App: React.FC = () => {
   // Action completion
   const handleActionComplete = useCallback(() => {
     setState('success');
+    setIntentType('chat');
+    setGmailIntent(null);
+    setCalendarIntent(null);
+  }, []);
+
+  // Tool Approval Handlers
+  const handleApproveTool = useCallback((_id: string) => {
+    if (approvalResolverRef.current) {
+      approvalResolverRef.current(true);
+      approvalResolverRef.current = null;
+    }
+    setApprovalRequest(null);
+  }, []);
+
+  const handleDenyTool = useCallback((_id: string) => {
+    if (approvalResolverRef.current) {
+      approvalResolverRef.current(false);
+      approvalResolverRef.current = null;
+    }
+    setApprovalRequest(null);
   }, []);
 
   // When prompt is submitted via Enter key:
@@ -176,7 +157,6 @@ export const App: React.FC = () => {
     const trimmed = promptText.trim();
     if (!trimmed) return;
 
-    // Immediately clear the top input bar so it's clean and ready for follow-up!
     setUserPrompt('');
 
     const userMsg: ChatMessage = {
@@ -196,99 +176,70 @@ export const App: React.FC = () => {
     setState('action');
     setIsStreaming(true);
 
-    // Keep focus on top input so user can type next prompt seamlessly
+    // Persist user prompt to SQLite
+    try {
+      await invoke('save_session_message', {
+        id: userMsg.id,
+        sessionId: 'default-session',
+        role: 'user',
+        content: trimmed,
+        toolCalls: null,
+        toolCallId: null,
+      });
+    } catch {
+      // Non-blocking in browser preview
+    }
+
     setTimeout(() => {
       notchInputRef.current?.focus();
     }, 50);
 
-    // System instruction with Mavis Agent persona
-    const systemPrompt = {
-      role: 'system',
-      content: `You are Mavis Agent, an intelligent AI assistant. You are helpful, knowledgeable, and direct. You assist users with a wide range of tasks including answering questions, writing and editing code, analyzing information, creative work, and executing actions via your tools. You communicate clearly, admit uncertainty when appropriate, and prioritize being genuinely useful over being verbose unless otherwise directed below. Be targeted and efficient in your exploration and investigations.`,
-    };
-
-    const historyToSend = [
-      systemPrompt,
-      ...messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
-      {
-        role: 'user',
-        content: trimmed,
+    // Run Full ReAct Loop Orchestrator
+    reactEngineRef.current.runConversationTurn(trimmed, messages, {
+      onThinkingChange: (thinking) => {
+        setIsThinking(thinking);
       },
-    ];
-
-    try {
-      // Native Rust backend IPC invocation to stream directly from OmniRoute 127.0.0.1:20128
-      await invoke('send_chat_stream', {
-        messageId: assistantMsgId,
-        messages: historyToSend,
-      });
-    } catch (err) {
-      console.warn('Tauri native IPC call error, trying direct browser fetch fallback:', err);
-      try {
-        const response = await fetch('http://127.0.0.1:20128/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'antigravity',
-            messages: historyToSend,
-            stream: true,
-          }),
+      onToolStateChange: (tool) => {
+        setActiveTool(tool);
+      },
+      onApprovalRequired: async (request) => {
+        return new Promise<boolean>((resolve) => {
+          setApprovalRequest(request);
+          approvalResolverRef.current = resolve;
         });
-
-        if (!response.ok || !response.body) {
-          throw new Error(`HTTP ${response.status}`);
+      },
+      onActionCardIntent: (intent) => {
+        if (intent.type === 'gmail') {
+          setGmailIntent(intent as GmailDraftIntent);
+          setIntentType('gmail');
+        } else if (intent.type === 'calendar') {
+          setCalendarIntent(intent as CalendarEventIntent);
+          setIntentType('calendar');
         }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let accumulated = '';
-        let buffer = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            const cleanLine = line.trim();
-            if (cleanLine.startsWith('data: ') && cleanLine !== 'data: [DONE]') {
-              try {
-                const data = JSON.parse(cleanLine.slice(6));
-                const chunk = data.choices?.[0]?.delta?.content;
-                if (chunk) {
-                  accumulated += chunk;
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMsgId ? { ...m, content: accumulated } : m
-                    )
-                  );
-                }
-              } catch {
-                // Ignore parse errors on partial chunks
-              }
-            }
-          }
-        }
-      } catch (fallbackErr) {
-        console.error('Final model connection error:', fallbackErr);
-        const errMessage = `Error: ${(fallbackErr as Error).message}`;
+      },
+      onStreamChunk: (_msgId, token) => {
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantMsgId ? { ...m, content: errMessage } : m
+            m.id === assistantPlaceholder.id ? { ...m, content: token } : m
           )
         );
-      } finally {
+      },
+      onDone: () => {
         setIsStreaming(false);
-      }
-    }
+        setIsThinking(false);
+        setActiveTool(null);
+      },
+      onError: (err) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantPlaceholder.id ? { ...m, content: `Error: ${err}` } : m
+          )
+        );
+        setIsStreaming(false);
+        setIsThinking(false);
+        setActiveTool(null);
+      },
+    });
   }, [messages]);
 
   // Clear active conversation session
@@ -296,6 +247,12 @@ export const App: React.FC = () => {
     setMessages([]);
     setUserPrompt('');
     setIsStreaming(false);
+    setIsThinking(false);
+    setActiveTool(null);
+    setApprovalRequest(null);
+    setGmailIntent(null);
+    setCalendarIntent(null);
+    setIntentType('chat');
     setTimeout(() => {
       notchInputRef.current?.focus();
     }, 50);
@@ -392,14 +349,21 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* The Multi-Surface Floating Mavis Notch */}
+      {/* The Monolithic Floating Mavis Notch (Unified Obsidian Canvas) */}
       <NotchContainer
         state={state}
         intentType={intentType}
+        gmailIntent={gmailIntent}
+        calendarIntent={calendarIntent}
         userPrompt={userPrompt}
         messages={messages}
         isStreaming={isStreaming}
+        isThinking={isThinking}
+        activeTool={activeTool}
+        approvalRequest={approvalRequest}
         inputRef={notchInputRef}
+        onApproveTool={handleApproveTool}
+        onDenyTool={handleDenyTool}
         onPromptChange={handlePromptChange}
         onPromptSubmit={handlePromptSubmit}
         onClearSession={handleClearSession}

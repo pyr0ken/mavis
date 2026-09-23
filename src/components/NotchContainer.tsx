@@ -1,10 +1,12 @@
 import React, { useRef, useEffect, lazy, Suspense } from 'react';
 import { Check } from 'lucide-react';
 import { InteractiveBlobatar } from './InteractiveBlobatar';
-import { IslandState, ActionCardType, ChatMessage } from '../types/island';
+import { IslandState, ActionCardType, ChatMessage, ToolExecutionState, ToolApprovalRequest, GmailDraftIntent, CalendarEventIntent } from '../types/island';
 import { ConcaveShoulders } from './ConcaveShoulders';
 import { AudioWaveformBars } from './AudioWaveformBars';
 import { AppleIntelligenceGlow } from './AppleIntelligenceGlow';
+import { GmailComposeCard } from './GmailComposeCard';
+import { CalendarEventCard } from './CalendarEventCard';
 import { useIslandAnimation } from '../hooks/useIslandAnimation';
 import { useAnimatedPlaceholder } from '../hooks/useAnimatedPlaceholder';
 
@@ -15,10 +17,17 @@ const LazyChatStreamCard = lazy(() =>
 interface NotchContainerProps {
   state: IslandState;
   intentType?: ActionCardType;
+  gmailIntent?: GmailDraftIntent | null;
+  calendarIntent?: CalendarEventIntent | null;
   userPrompt?: string;
   messages?: ChatMessage[];
   isStreaming?: boolean;
+  isThinking?: boolean;
+  activeTool?: ToolExecutionState | null;
+  approvalRequest?: ToolApprovalRequest | null;
   inputRef?: React.RefObject<HTMLTextAreaElement | null>;
+  onApproveTool?: (id: string) => void;
+  onDenyTool?: (id: string) => void;
   onPromptChange?: (val: string) => void;
   onPromptSubmit?: (val: string) => void;
   onClearSession?: () => void;
@@ -40,10 +49,18 @@ const ACTIONABLE_SUGGESTIONS = [
 
 export const NotchContainer: React.FC<NotchContainerProps> = ({
   state,
+  intentType,
+  gmailIntent,
+  calendarIntent,
   userPrompt = '',
   messages = [],
   isStreaming = false,
+  isThinking = false,
+  activeTool = null,
+  approvalRequest = null,
   inputRef,
+  onApproveTool,
+  onDenyTool,
   onPromptChange,
   onPromptSubmit,
   onClearSession,
@@ -229,7 +246,7 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
         )}
       </div>
 
-      {/* Surface Layer 2: Action Content Panel */}
+      {/* Surface Layer 2: Action Content Panel - Monolithic Unified Obsidian Canvas */}
       <div
         ref={actionContentRef}
         onClick={(e) => {
@@ -239,11 +256,11 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
           top: `${dynamicNotchHeight}px`,
           height: `calc(100% - ${dynamicNotchHeight}px)`,
         }}
-        className="absolute inset-x-0 bottom-0 px-4 pb-4 z-10 hidden cursor-default"
+        className="absolute inset-x-0 bottom-0 px-2 pb-2 z-10 hidden cursor-default"
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="w-full h-full rounded-[22px] bg-[#16181F]/95 backdrop-blur-2xl border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] overflow-hidden"
+          className="w-full h-full bg-transparent overflow-hidden"
         >
           <Suspense
             fallback={
@@ -256,13 +273,36 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
             }
           >
             {isAction && (
-              <LazyChatStreamCard
-                active={isAction}
-                messages={messages}
-                isStreaming={isStreaming}
-                onClearSession={onClearSession}
-                onClose={onActionComplete}
-              />
+              intentType === 'gmail' ? (
+                <div className="w-full h-full flex items-center justify-center p-2">
+                  <GmailComposeCard
+                    active={isAction}
+                    intent={gmailIntent}
+                    onSend={onActionComplete}
+                  />
+                </div>
+              ) : intentType === 'calendar' ? (
+                <div className="w-full h-full flex items-center justify-center p-2">
+                  <CalendarEventCard
+                    active={isAction}
+                    intent={calendarIntent}
+                    onSave={onActionComplete}
+                  />
+                </div>
+              ) : (
+                <LazyChatStreamCard
+                  active={isAction}
+                  messages={messages}
+                  isStreaming={isStreaming}
+                  isThinking={isThinking}
+                  activeTool={activeTool}
+                  approvalRequest={approvalRequest}
+                  onApproveTool={onApproveTool}
+                  onDenyTool={onDenyTool}
+                  onClearSession={onClearSession}
+                  onClose={onActionComplete}
+                />
+              )
             )}
           </Suspense>
         </div>

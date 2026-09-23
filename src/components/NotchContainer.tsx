@@ -1,18 +1,35 @@
-import React, { useRef, useEffect, lazy, Suspense } from 'react';
-import { Check } from 'lucide-react';
+import React, { useRef, useEffect, useState, lazy, Suspense } from 'react';
+import { Check, Sparkles, AlertCircle, Info } from 'lucide-react';
 import { InteractiveBlobatar } from './InteractiveBlobatar';
-import { IslandState, ActionCardType, ChatMessage, ToolExecutionState, ToolApprovalRequest, GmailDraftIntent, CalendarEventIntent } from '../types/island';
+import {
+  IslandState,
+  ActionCardType,
+  ChatMessage,
+  ToolExecutionState,
+  ToolApprovalRequest,
+  GmailDraftIntent,
+  CalendarEventIntent,
+} from '../types/island';
+import { SlashCommand, SessionRecord } from '../types/commands';
+import { commandRegistry, getNextGridIndex } from '../services/commands/commandRegistry';
 import { ConcaveShoulders } from './ConcaveShoulders';
 import { AudioWaveformBars } from './AudioWaveformBars';
 import { AppleIntelligenceGlow } from './AppleIntelligenceGlow';
 import { GmailComposeCard } from './GmailComposeCard';
 import { CalendarEventCard } from './CalendarEventCard';
+import { SlashCommandPalette } from './SlashCommandPalette';
+import { HistoryDrawer } from './HistoryDrawer';
 import { useIslandAnimation } from '../hooks/useIslandAnimation';
 import { useAnimatedPlaceholder } from '../hooks/useAnimatedPlaceholder';
 
 const LazyChatStreamCard = lazy(() =>
   import('./ChatStreamCard').then((m) => ({ default: m.ChatStreamCard }))
 );
+
+interface NotchNotification {
+  text: string;
+  type?: 'info' | 'success' | 'warning';
+}
 
 interface NotchContainerProps {
   state: IslandState;
@@ -25,11 +42,19 @@ interface NotchContainerProps {
   isThinking?: boolean;
   activeTool?: ToolExecutionState | null;
   approvalRequest?: ToolApprovalRequest | null;
+  notification?: NotchNotification | null;
+  sessions?: SessionRecord[];
+  activeSessionId?: string;
   inputRef?: React.RefObject<HTMLTextAreaElement | null>;
   onApproveTool?: (id: string) => void;
   onDenyTool?: (id: string) => void;
   onPromptChange?: (val: string) => void;
   onPromptSubmit?: (val: string) => void;
+  onExecuteCommand?: (cmd: SlashCommand) => void;
+  onSelectSession?: (session: SessionRecord) => void;
+  onNewSession?: () => void;
+  onDeleteSession?: (sessionId: string) => void;
+  onCloseHistory?: () => void;
   onClearSession?: () => void;
   onNotchClick: () => void;
   onActionComplete: () => void;
@@ -38,7 +63,7 @@ interface NotchContainerProps {
 }
 
 const ACTIONABLE_SUGGESTIONS = [
-  'Whisper or type a command...',
+  'Type / for commands & skills...',
   'Schedule sprint review tomorrow at 10 AM...',
   'Summarize the active document on screen...',
   'Draft a quick reply to David regarding design...',
@@ -58,11 +83,19 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
   isThinking = false,
   activeTool = null,
   approvalRequest = null,
+  notification = null,
+  sessions = [],
+  activeSessionId = '',
   inputRef,
   onApproveTool,
   onDenyTool,
   onPromptChange,
   onPromptSubmit,
+  onExecuteCommand,
+  onSelectSession,
+  onNewSession,
+  onDeleteSession,
+  onCloseHistory,
   onClearSession,
   onNotchClick,
   onActionComplete,
@@ -76,6 +109,9 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
   const localTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const activeInputRef = inputRef || localTextareaRef;
 
+  const [paletteSelectedIndex, setPaletteSelectedIndex] = useState(0);
+  const [isIdleSettled, setIsIdleSettled] = useState(false);
+
   const isListening = state === 'listening';
   const isTyping = state === 'typing';
   const isAction = state === 'action';
@@ -84,6 +120,27 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
   const lineCount = (userPrompt || '').split('\n').length;
   const clampedLines = Math.min(3, Math.max(1, lineCount));
   const dynamicNotchHeight = 54 + (clampedLines - 1) * 24;
+
+  // Slash command trigger detection
+  const isSlashActive = userPrompt.startsWith('/');
+  const filteredCommands = isSlashActive ? commandRegistry.searchCommands(userPrompt) : [];
+
+  // Reset selected index when filtered list changes
+  useEffect(() => {
+    setPaletteSelectedIndex(0);
+  }, [userPrompt]);
+
+  // Wait for opening/collapsing animation to settle before starting typewriter
+  useEffect(() => {
+    if (state === 'idle') {
+      const timer = setTimeout(() => {
+        setIsIdleSettled(true);
+      }, 380);
+      return () => clearTimeout(timer);
+    } else {
+      setIsIdleSettled(false);
+    }
+  }, [state]);
 
   useIslandAnimation({
     containerRef,
@@ -95,13 +152,21 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
     onAnimationEnd,
   });
 
-  // Dynamic Typewriter Animated Placeholder for Suggested Commands
+  // Dynamic Typewriter Animated Placeholder (strictly disabled during closing/morphing)
+  const isPlaceholderActive =
+    state === 'idle' &&
+    isIdleSettled &&
+    !userPrompt &&
+    !isListening &&
+    !isAction &&
+    !isSuccess;
+
   const animatedPlaceholder = useAnimatedPlaceholder({
     phrases: ACTIONABLE_SUGGESTIONS,
     typingSpeed: 38,
     deletingSpeed: 20,
     pauseDuration: 2200,
-    active: !userPrompt && !isListening && !isAction && !isSuccess,
+    active: isPlaceholderActive,
   });
 
   // Auto-focus the typing input whenever overlay becomes idle, typing, or action
@@ -131,10 +196,14 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
     };
     if (typeof window !== 'undefined') {
       if ('requestIdleCallback' in window) {
-        const handle = (window as Window & { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback(preload);
+        const handle = (
+          window as Window & { requestIdleCallback: (cb: () => void) => number }
+        ).requestIdleCallback(preload);
         return () => {
           if ('cancelIdleCallback' in window) {
-            (window as Window & { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(handle);
+            (
+              window as Window & { cancelIdleCallback: (id: number) => void }
+            ).cancelIdleCallback(handle);
           }
         };
       } else {
@@ -143,6 +212,11 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
       }
     }
   }, []);
+
+  const handleSelectSlashCommand = (cmd: SlashCommand) => {
+    onPromptChange?.('');
+    onExecuteCommand?.(cmd);
+  };
 
   return (
     <div
@@ -159,6 +233,20 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
 
       {/* Dark Glass Rim Light & Shadow */}
       <AppleIntelligenceGlow active={showGlow} isSuccess={isSuccess} />
+
+      {/* Ephemeral Notification HUD Banner */}
+      {notification && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 text-[11px] font-medium shadow-[0_0_15px_rgba(6,182,212,0.3)] animate-in fade-in zoom-in-95 duration-200 pointer-events-none">
+          {notification.type === 'success' ? (
+            <Sparkles size={12} className="text-emerald-400 shrink-0" />
+          ) : notification.type === 'warning' ? (
+            <AlertCircle size={12} className="text-amber-400 shrink-0" />
+          ) : (
+            <Info size={12} className="text-cyan-400 shrink-0" />
+          )}
+          <span className="truncate max-w-[280px]">{notification.text}</span>
+        </div>
+      )}
 
       {/* Surface Layer 1: Top Bar Header */}
       <div
@@ -202,8 +290,8 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
               lineCount > 1 ? 'items-start pt-1.5' : 'items-center'
             }`}
           >
-            {/* Animated High-Contrast Suggestion Placeholder Overlay (when idle) */}
-            {!userPrompt && !isAction && (
+            {/* Animated High-Contrast Suggestion Placeholder Overlay (when idle and not hidden) */}
+            {isPlaceholderActive && (
               <div className="absolute inset-x-3 inset-y-0 flex items-center pointer-events-none text-sm text-[#cbd5e1] font-normal tracking-wide overflow-hidden select-none z-0">
                 <span className="truncate">{animatedPlaceholder}</span>
               </div>
@@ -217,11 +305,64 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
                 onPromptChange?.(e.target.value);
               }}
               onKeyDown={(e) => {
+                if (isSlashActive && filteredCommands.length > 0) {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setPaletteSelectedIndex((prev) =>
+                      getNextGridIndex(filteredCommands, prev, 'down', 2)
+                    );
+                    return;
+                  }
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setPaletteSelectedIndex((prev) =>
+                      getNextGridIndex(filteredCommands, prev, 'up', 2)
+                    );
+                    return;
+                  }
+                  if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    setPaletteSelectedIndex((prev) =>
+                      getNextGridIndex(filteredCommands, prev, 'right', 2)
+                    );
+                    return;
+                  }
+                  if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    setPaletteSelectedIndex((prev) =>
+                      getNextGridIndex(filteredCommands, prev, 'left', 2)
+                    );
+                    return;
+                  }
+                  if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const selected = filteredCommands[paletteSelectedIndex];
+                    if (selected) {
+                      onPromptChange?.(`${selected.prefix} `);
+                    }
+                    return;
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    onPromptChange?.('');
+                    return;
+                  }
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const selected = filteredCommands[paletteSelectedIndex];
+                    if (selected) {
+                      handleSelectSlashCommand(selected);
+                    }
+                    return;
+                  }
+                }
+
                 if (e.key === 'Enter') {
                   if (e.shiftKey) {
                     // Shift + Enter: Allow multiline newline
                   } else {
-                    // Enter: Instant submit without any buttons
+                    // Enter: Instant submit
                     e.preventDefault();
                     e.stopPropagation();
                     const text = userPrompt.trim();
@@ -239,7 +380,7 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
                 height: `${clampedLines * 24}px`,
                 maxHeight: '72px',
               }}
-              placeholder={isAction ? 'Type a follow-up message...' : ''}
+              placeholder={isAction ? 'Type a message or / for commands...' : ''}
               className="w-full bg-transparent text-sm font-medium text-white leading-[24px] tracking-wide outline-none resize-none overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden placeholder:text-gray-500/60 focus:text-white relative z-10 selection:bg-sky-500/50 selection:text-white text-start caret-white m-0 p-0"
             />
           </div>
@@ -273,7 +414,15 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
             }
           >
             {isAction && (
-              intentType === 'gmail' ? (
+              isSlashActive ? (
+                <SlashCommandPalette
+                  commands={filteredCommands}
+                  selectedIndex={paletteSelectedIndex}
+                  onSelectCommand={handleSelectSlashCommand}
+                  onHoverIndex={setPaletteSelectedIndex}
+                  searchQuery={userPrompt.slice(1)}
+                />
+              ) : intentType === 'gmail' ? (
                 <div className="w-full h-full flex items-center justify-center p-2">
                   <GmailComposeCard
                     active={isAction}
@@ -289,6 +438,23 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
                     onSave={onActionComplete}
                   />
                 </div>
+              ) : intentType === 'history' ? (
+                <HistoryDrawer
+                  sessions={sessions}
+                  activeSessionId={activeSessionId}
+                  onSelectSession={(sess) => {
+                    onSelectSession?.(sess);
+                  }}
+                  onNewSession={() => {
+                    onNewSession?.();
+                  }}
+                  onDeleteSession={(id) => {
+                    onDeleteSession?.(id);
+                  }}
+                  onClose={() => {
+                    onCloseHistory?.();
+                  }}
+                />
               ) : (
                 <LazyChatStreamCard
                   active={isAction}

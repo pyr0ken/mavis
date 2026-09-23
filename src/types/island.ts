@@ -1,10 +1,47 @@
 export type IslandState =
   | 'hidden'        // Off-screen / retracted into top bezel (y: -150px)
-  | 'idle'          // Large black notch (380px x 54px) with live avatar
+  | 'idle'          // Large black notch (400px x 54px) with live avatar
   | 'listening'     // Expanded listening notch (520px x 60px) with 4-bar equalizer
-  | 'typing'        // In-place dynamic typing notch (520px x dynamic height)
-  | 'action'        // 2X expanded notch (860px x 480px) containing Action Card
-  | 'success';      // Floating / bezel-anchored Success Toast (380px x 60px)
+  | 'typing'        // In-place dynamic typing notch (480px x dynamic height)
+  | 'action'        // 2X expanded notch (860px x 480px) containing Unified Canvas
+  | 'success';      // Floating / bezel-anchored Success Toast (380px x 54px)
+
+export type AgentExecutionState =
+  | 'idle'
+  | 'thinking'
+  | 'tool_executing'
+  | 'streaming'
+  | 'waiting_approval'
+  | 'action_card'
+  | 'success';
+
+export interface ToolCallPayload {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+export interface ToolExecutionState {
+  toolCallId: string;
+  name: string;
+  arguments: Record<string, unknown>;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'requires_approval';
+  result?: string;
+  error?: string;
+  startTime?: number;
+  durationMs?: number;
+}
+
+export interface ToolApprovalRequest {
+  id: string;
+  toolName: string;
+  command: string;
+  reason: string;
+  isMutating: boolean;
+}
 
 export type OverlayLifecycleState = 
   | 'DAEMON_IDLE'        // Collapsed/hidden notch, click-through active, sticky on all desktops
@@ -30,8 +67,10 @@ export type ActionCardType = 'gmail' | 'calendar' | 'chat';
 
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
+  tool_calls?: ToolCallPayload[];
+  tool_call_id?: string;
 }
 
 export interface RecipientInfo {

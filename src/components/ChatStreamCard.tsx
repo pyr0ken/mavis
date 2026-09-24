@@ -35,6 +35,7 @@ interface ChatStreamCardProps {
   approvalRequest?: ToolApprovalRequest | null;
   onApproveTool?: (id: string) => void;
   onDenyTool?: (id: string) => void;
+  onFocusInput?: () => void;
   onClearSession?: () => void;
   onClose?: () => void;
 }
@@ -124,6 +125,7 @@ export const ChatStreamCard: React.FC<ChatStreamCardProps> = ({
   approvalRequest = null,
   onApproveTool,
   onDenyTool,
+  onFocusInput,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const bottomAnchorRef = useRef<HTMLDivElement | null>(null);
@@ -177,21 +179,16 @@ export const ChatStreamCard: React.FC<ChatStreamCardProps> = ({
 
   return (
     <div
-      onClick={(e) => e.stopPropagation()}
-      className="w-full h-full flex flex-col justify-between text-left select-text bg-transparent"
+      onClick={() => {
+        onFocusInput?.();
+      }}
+      className="w-full h-full flex flex-col justify-between text-left select-text bg-transparent cursor-text"
     >
-      {/* Top Status Strip: Live Tool / Thinking Pill */}
-      <div className="flex items-center px-6 pt-2 pb-1 select-none min-h-[32px]">
-        <div className="flex items-center gap-2">
-          <LiveToolPill thinking={isThinking} activeTool={activeTool} />
-        </div>
-      </div>
-
       {/* Main Conversation Canvas on Unified Obsidian Black */}
       <div
         ref={scrollRef}
         onMouseDown={handleMouseDown}
-        className={`flex-1 px-6 py-2 pb-4 flex flex-col gap-3.5 overflow-y-auto custom-scroll ${
+        className={`flex-1 px-6 py-3 pb-4 flex flex-col gap-3.5 overflow-y-auto custom-scroll ${
           isMiddleMouseDown ? 'cursor-grab select-none' : ''
         }`}
       >
@@ -204,11 +201,15 @@ export const ChatStreamCard: React.FC<ChatStreamCardProps> = ({
           />
         )}
 
-        {messages.map((msg) => {
+        {messages.map((msg, idx) => {
           if (msg.role === 'system' || msg.role === 'tool') return null;
           const isUser = msg.role === 'user';
           const isRtl = isRTLText(msg.content);
           const normalizedContent = preprocessLaTeX(msg.content);
+          const isLatestAssistantMessage =
+            !isUser &&
+            (idx === messages.length - 1 ||
+              (idx === messages.length - 2 && messages[messages.length - 1].role === 'tool'));
 
           if (isUser) {
             return (
@@ -236,6 +237,15 @@ export const ChatStreamCard: React.FC<ChatStreamCardProps> = ({
               key={msg.id}
               className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl p-4 text-xs sm:text-sm text-gray-200 shadow-inner"
             >
+              {/* Chronologically placed Live Reasoning / Tool Execution inside the Assistant Card */}
+              {((isLatestAssistantMessage && (isThinking || activeTool)) || msg.thinking || msg.reasoning) && (
+                <LiveToolPill
+                  thinking={isLatestAssistantMessage && isThinking}
+                  activeTool={isLatestAssistantMessage ? activeTool : null}
+                  thinkingContent={msg.thinking || msg.reasoning}
+                />
+              )}
+
               <div
                 dir={isRTLText(msg.content) ? 'rtl' : 'ltr'}
                 className={`leading-relaxed font-sans prose prose-invert max-w-none ${
@@ -298,7 +308,7 @@ export const ChatStreamCard: React.FC<ChatStreamCardProps> = ({
                   >
                     {normalizedContent}
                   </ReactMarkdown>
-                ) : (
+                ) : isThinking || activeTool ? null : (
                   <span className="inline-block w-2 h-4 bg-sky-400 animate-pulse align-middle"></span>
                 )}
               </div>

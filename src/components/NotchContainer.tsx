@@ -10,7 +10,7 @@ import {
   GmailDraftIntent,
   CalendarEventIntent,
 } from '../types/island';
-import { SlashCommand, SessionRecord } from '../types/commands';
+import { SlashCommand, SessionRecord, NotificationType } from '../types/commands';
 import { commandRegistry, getNextGridIndex } from '../services/commands/commandRegistry';
 import { ConcaveShoulders } from './ConcaveShoulders';
 import { AudioWaveformBars } from './AudioWaveformBars';
@@ -19,6 +19,7 @@ import { GmailComposeCard } from './GmailComposeCard';
 import { CalendarEventCard } from './CalendarEventCard';
 import { SlashCommandPalette } from './SlashCommandPalette';
 import { HistoryDrawer } from './HistoryDrawer';
+import { DashboardHubCard } from './DashboardHubCard';
 import { useIslandAnimation } from '../hooks/useIslandAnimation';
 import { useAnimatedPlaceholder } from '../hooks/useAnimatedPlaceholder';
 
@@ -28,7 +29,7 @@ const LazyChatStreamCard = lazy(() =>
 
 interface NotchNotification {
   text: string;
-  type?: 'info' | 'success' | 'warning';
+  type?: NotificationType;
 }
 
 interface NotchContainerProps {
@@ -45,6 +46,7 @@ interface NotchContainerProps {
   notification?: NotchNotification | null;
   sessions?: SessionRecord[];
   activeSessionId?: string;
+  activeModelName?: string;
   inputRef?: React.RefObject<HTMLTextAreaElement | null>;
   onApproveTool?: (id: string) => void;
   onDenyTool?: (id: string) => void;
@@ -54,7 +56,9 @@ interface NotchContainerProps {
   onSelectSession?: (session: SessionRecord) => void;
   onNewSession?: () => void;
   onDeleteSession?: (sessionId: string) => void;
+  onOpenHistory?: () => void;
   onCloseHistory?: () => void;
+  onInjectPrompt?: (prompt: string, autoSubmit?: boolean) => void;
   onClearSession?: () => void;
   onNotchClick: () => void;
   onActionComplete: () => void;
@@ -86,6 +90,7 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
   notification = null,
   sessions = [],
   activeSessionId = '',
+  activeModelName = 'Antigravity / Hybrid Core',
   inputRef,
   onApproveTool,
   onDenyTool,
@@ -95,7 +100,9 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
   onSelectSession,
   onNewSession,
   onDeleteSession,
+  onOpenHistory,
   onCloseHistory,
+  onInjectPrompt,
   onClearSession,
   onNotchClick,
   onActionComplete,
@@ -231,20 +238,36 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
       {/* Continuous-curvature concave shoulders in pure black */}
       <ConcaveShoulders color="#000000" />
 
-      {/* Dark Glass Rim Light & Shadow */}
-      <AppleIntelligenceGlow active={showGlow} isSuccess={isSuccess} />
+      {/* Dynamic Ambient Neon Aura & Rim Shadow (Colors match notification state: Green / Red / Amber / Blue) */}
+      <AppleIntelligenceGlow
+        active={showGlow}
+        isSuccess={isSuccess}
+        notificationType={notification?.type}
+      />
 
-      {/* Ephemeral Notification HUD Banner */}
+      {/* Ephemeral Notification HUD Banner inside Top Bar */}
       {notification && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 text-[11px] font-medium shadow-[0_0_15px_rgba(6,182,212,0.3)] animate-in fade-in zoom-in-95 duration-200 pointer-events-none">
+        <div
+          className={`absolute top-2 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 px-3.5 py-1 rounded-full border text-[11px] font-medium animate-in fade-in zoom-in-95 duration-200 pointer-events-none transition-all ${
+            notification.type === 'success'
+              ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.4)]'
+              : notification.type === 'error'
+              ? 'bg-rose-500/15 border-rose-400/40 text-rose-300 shadow-[0_0_20px_rgba(244,63,94,0.4)]'
+              : notification.type === 'warning'
+              ? 'bg-amber-500/15 border-amber-400/40 text-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.4)]'
+              : 'bg-cyan-500/15 border-cyan-400/40 text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.4)]'
+          }`}
+        >
           {notification.type === 'success' ? (
             <Sparkles size={12} className="text-emerald-400 shrink-0" />
+          ) : notification.type === 'error' ? (
+            <AlertCircle size={12} className="text-rose-400 shrink-0" />
           ) : notification.type === 'warning' ? (
             <AlertCircle size={12} className="text-amber-400 shrink-0" />
           ) : (
             <Info size={12} className="text-cyan-400 shrink-0" />
           )}
-          <span className="truncate max-w-[280px]">{notification.text}</span>
+          <span className="truncate max-w-[280px] font-medium">{notification.text}</span>
         </div>
       )}
 
@@ -455,6 +478,23 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
                     onCloseHistory?.();
                   }}
                 />
+              ) : messages.length === 0 ? (
+                <DashboardHubCard
+                  sessions={sessions}
+                  activeModelName={activeModelName}
+                  onSelectSession={(sess) => {
+                    onSelectSession?.(sess);
+                  }}
+                  onOpenHistory={() => {
+                    onOpenHistory?.();
+                  }}
+                  onExecuteCommand={(cmd) => {
+                    onExecuteCommand?.(cmd);
+                  }}
+                  onInjectPrompt={(prompt, autoSubmit) => {
+                    onInjectPrompt?.(prompt, autoSubmit);
+                  }}
+                />
               ) : (
                 <LazyChatStreamCard
                   active={isAction}
@@ -465,6 +505,9 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
                   approvalRequest={approvalRequest}
                   onApproveTool={onApproveTool}
                   onDenyTool={onDenyTool}
+                  onFocusInput={() => {
+                    activeInputRef.current?.focus();
+                  }}
                   onClearSession={onClearSession}
                   onClose={onActionComplete}
                 />

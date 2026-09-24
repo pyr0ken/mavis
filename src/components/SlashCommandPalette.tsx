@@ -38,16 +38,6 @@ const CATEGORY_METADATA: Record<
     badgeColor: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
     textColor: 'text-emerald-400',
   },
-  model: {
-    label: 'MODELS & ENGINES',
-    badgeColor: 'bg-purple-500/10 border-purple-500/20 text-purple-400',
-    textColor: 'text-purple-400',
-  },
-  skill: {
-    label: 'AGENT SKILLS & WORKFLOWS',
-    badgeColor: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400',
-    textColor: 'text-cyan-400',
-  },
   mcp: {
     label: 'INTEGRATIONS & MCP TOOLS',
     badgeColor: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
@@ -152,7 +142,14 @@ export const SlashCommandPalette: React.FC<SlashCommandPaletteProps> = ({
     onHoverIndex(index);
   };
 
-  const categories: CommandCategory[] = ['system', 'model', 'skill', 'mcp'];
+  // Dynamically group categories based on the search rank order of incoming commands
+  const categoriesInOrder: CommandCategory[] = [];
+  for (const cmd of commands) {
+    if (!categoriesInOrder.includes(cmd.category)) {
+      categoriesInOrder.push(cmd.category);
+    }
+  }
+
   let globalIndexCounter = 0;
 
   return (
@@ -191,11 +188,11 @@ export const SlashCommandPalette: React.FC<SlashCommandPaletteProps> = ({
             </div>
             <div>
               <p className="font-medium text-slate-200">No matching commands found for &ldquo;/{searchQuery}&rdquo;</p>
-              <p className="text-[11px] text-slate-500 mt-1">Try typing &quot;/new&quot;, &quot;/model:claude&quot;, or &quot;/skill:plan&quot;</p>
+              <p className="text-[11px] text-slate-500 mt-1">Try typing &quot;/model&quot;, &quot;/new&quot;, or &quot;/skill:plan&quot;</p>
             </div>
           </div>
         ) : (
-          categories.map((cat) => {
+          categoriesInOrder.map((cat) => {
             const groupCommands = commands.filter((c) => c.category === cat);
             if (groupCommands.length === 0) return null;
 

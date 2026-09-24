@@ -18,9 +18,9 @@ function levenshteinDistance(a: string, b: string): number {
         matrix[i][j] = matrix[i - 1][j - 1];
       } else {
         matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
         );
       }
     }
@@ -36,18 +36,18 @@ function calculateFuzzyScore(query: string, target: string): number {
   // 1. Exact match
   if (t === q) return 1000;
 
-  // 2. Starts with query (Prefix)
+  // 2. Starts with query (Prefix match)
   if (t.startsWith(q)) {
-    return 600 + Math.max(0, 50 - t.length);
+    return 700 + Math.max(0, 50 - t.length);
   }
 
   // 3. Substring match
   const subIdx = t.indexOf(q);
   if (subIdx !== -1) {
-    return 400 - subIdx * 5;
+    return 450 - subIdx * 10;
   }
 
-  // 4. Fuzzy Subsequence Match (e.g. "nw" in "new", "cr" in "code review")
+  // 4. Fuzzy Subsequence Match
   let qIdx = 0;
   let score = 0;
   let consecutive = 0;
@@ -56,17 +56,15 @@ function calculateFuzzyScore(query: string, target: string): number {
   for (let tIdx = 0; tIdx < t.length && qIdx < q.length; tIdx++) {
     if (t[tIdx] === q[qIdx]) {
       qIdx++;
-      let charScore = 25;
+      let charScore = 30;
 
-      // Word-boundary bonus (start of word or after delimiter / - _ :)
       if (tIdx === 0 || /[\s\-_:/]/.test(t[tIdx - 1])) {
-        charScore += 45;
+        charScore += 50;
       }
 
-      // Consecutive match bonus
       if (tIdx === prevMatchIdx + 1) {
         consecutive++;
-        charScore += consecutive * 20;
+        charScore += consecutive * 25;
       } else {
         consecutive = 0;
       }
@@ -76,18 +74,16 @@ function calculateFuzzyScore(query: string, target: string): number {
     }
   }
 
-  // If all query characters appeared in sequence
   if (qIdx === q.length) {
-    return score + 120;
+    return score + 150;
   }
 
-  // 5. Typo tolerance via Levenshtein distance for close edits (e.g. "mdoel" -> "model")
-  if (q.length >= 2) {
+  if (q.length >= 3) {
     const dist = levenshteinDistance(q, t);
     const maxLen = Math.max(q.length, t.length);
     const similarity = 1 - dist / maxLen;
-    if (dist <= 2 && similarity >= 0.45) {
-      return Math.round(similarity * 150);
+    if (dist <= 2 && similarity >= 0.55) {
+      return Math.round(similarity * 180);
     }
   }
 
@@ -95,7 +91,7 @@ function calculateFuzzyScore(query: string, target: string): number {
 }
 
 export class CommandRegistry {
-  private commands: SlashCommand[] = [];
+  private baseCommands: SlashCommand[] = [];
 
   constructor() {
     this.registerDefaultCommands();
@@ -108,14 +104,13 @@ export class CommandRegistry {
         id: 'cmd-new',
         prefix: '/new',
         label: 'New Session',
-        description: 'Start a fresh conversation and archive current thread',
+        description: 'Archive current conversation and start clean session',
         category: 'system',
         icon: 'Plus',
         shortcut: 'Ctrl+N',
-        keywords: ['new', 'nw', 'reset', 'fresh', 'create', 'start', 'clear'],
+        keywords: ['new', 'nw', 'fresh', 'create', 'start', 'clean', 'reset'],
         execute: (ctx) => {
           ctx.startNewSession();
-          ctx.showNotification('New session initialized', 'success');
         },
       },
       {
@@ -134,15 +129,14 @@ export class CommandRegistry {
       {
         id: 'cmd-clear',
         prefix: '/clear',
-        label: 'Clear Canvas',
-        description: 'Clear messages on active screen without deleting session',
+        label: 'Clear Canvas & Reset',
+        description: 'Save current chat to history and open fresh dashboard',
         category: 'system',
         icon: 'Trash2',
         shortcut: 'Ctrl+L',
-        keywords: ['clear', 'clean', 'wipe', 'empty', 'screen'],
+        keywords: ['clear', 'clean', 'wipe', 'empty', 'reset'],
         execute: (ctx) => {
           ctx.clearMessages();
-          ctx.showNotification('Canvas cleared', 'info');
         },
       },
       {
@@ -182,111 +176,7 @@ export class CommandRegistry {
         },
       },
 
-      // 2. Models
-      {
-        id: 'cmd-model-claude',
-        prefix: '/model:claude',
-        label: 'Claude 3.7 Sonnet',
-        description: 'Anthropic reasoning & hybrid thinking agent engine',
-        category: 'model',
-        icon: 'Sparkles',
-        keywords: ['claude', 'anthropic', 'sonnet', 'reasoning', 'model'],
-        execute: (ctx) => {
-          ctx.switchModel('claude-3-7-sonnet', 'Claude 3.7 Sonnet');
-          ctx.showNotification('Switched model to Claude 3.7 Sonnet', 'success');
-        },
-      },
-      {
-        id: 'cmd-model-gpt4o',
-        prefix: '/model:gpt4o',
-        label: 'GPT-4o Omnimodal',
-        description: 'OpenAI high-speed multimodal vision and agent core',
-        category: 'model',
-        icon: 'Zap',
-        keywords: ['gpt4', 'gpt4o', 'openai', 'chatgpt', 'model'],
-        execute: (ctx) => {
-          ctx.switchModel('gpt-4o', 'GPT-4o');
-          ctx.showNotification('Switched model to GPT-4o', 'success');
-        },
-      },
-      {
-        id: 'cmd-model-gemini',
-        prefix: '/model:gemini',
-        label: 'Gemini 2.5 Flash',
-        description: 'Google 1M+ context window with ultra-low latency',
-        category: 'model',
-        icon: 'Compass',
-        keywords: ['gemini', 'google', 'flash', 'long-context', 'model'],
-        execute: (ctx) => {
-          ctx.switchModel('gemini-2.5-flash', 'Gemini 2.5 Flash');
-          ctx.showNotification('Switched model to Gemini 2.5 Flash', 'success');
-        },
-      },
-      {
-        id: 'cmd-model-local',
-        prefix: '/model:local',
-        label: 'Local Offline Core',
-        description: 'Ollama / CTranslate2 private zero-cloud execution',
-        category: 'model',
-        icon: 'HardDrive',
-        keywords: ['local', 'ollama', 'offline', 'privacy', 'llama', 'model'],
-        execute: (ctx) => {
-          ctx.switchModel('local-ollama', 'Local Offline');
-          ctx.showNotification('Switched model to Local Offline', 'info');
-        },
-      },
-
-      // 3. Skills
-      {
-        id: 'cmd-skill-review',
-        prefix: '/skill:review',
-        label: 'Code Review Playbook',
-        description: 'Inspect diffs, security gates, and architecture patterns',
-        category: 'skill',
-        icon: 'Code',
-        keywords: ['review', 'code', 'cr', 'security', 'quality', 'audit', 'skill'],
-        execute: (ctx) => {
-          ctx.injectPrompt('Please conduct a thorough code review focusing on correctness, edge cases, and performance.');
-        },
-      },
-      {
-        id: 'cmd-skill-plan',
-        prefix: '/skill:plan',
-        label: 'Spec & Implementation Plan',
-        description: 'Generate comprehensive technical specification and tasks',
-        category: 'skill',
-        icon: 'FileText',
-        keywords: ['plan', 'architecture', 'spec', 'design', 'roadmap', 'skill'],
-        execute: (ctx) => {
-          ctx.injectPrompt('Create a detailed engineering plan with user stories, acceptance criteria, and checklist tasks for: ');
-        },
-      },
-      {
-        id: 'cmd-skill-debug',
-        prefix: '/skill:debug',
-        label: 'Systematic Debugging',
-        description: 'Execute 4-phase root cause analysis and verification loop',
-        category: 'skill',
-        icon: 'Bug',
-        keywords: ['debug', 'bug', 'fix', 'error', 'investigate', 'skill'],
-        execute: (ctx) => {
-          ctx.injectPrompt('Apply systematic root cause debugging to diagnose and fix this issue: ');
-        },
-      },
-      {
-        id: 'cmd-skill-tdd',
-        prefix: '/skill:tdd',
-        label: 'Test-Driven Development',
-        description: 'RED-GREEN-REFACTOR test generation and validation',
-        category: 'skill',
-        icon: 'CheckCircle2',
-        keywords: ['tdd', 'test', 'jest', 'unit', 'integration', 'skill'],
-        execute: (ctx) => {
-          ctx.injectPrompt('Write comprehensive unit tests following strict TDD methodology for: ');
-        },
-      },
-
-      // 4. Integrations & MCP
+      // 2. Integrations & Native MCP Tools
       {
         id: 'cmd-mcp-status',
         prefix: '/mcp:status',
@@ -313,63 +203,80 @@ export class CommandRegistry {
       },
     ];
 
-    this.commands = defaults;
+    this.baseCommands = defaults;
   }
 
   public getAllCommands(): SlashCommand[] {
-    const categoryOrder: CommandCategory[] = ['system', 'model', 'skill', 'mcp'];
+    const categoryOrder: CommandCategory[] = ['system', 'mcp'];
     const sorted: SlashCommand[] = [];
     for (const cat of categoryOrder) {
-      sorted.push(...this.commands.filter((c) => c.category === cat));
+      sorted.push(...this.baseCommands.filter((c) => c.category === cat));
     }
     return sorted;
   }
 
   public searchCommands(query: string): SlashCommand[] {
-    const cleanQuery = query.startsWith('/') ? query.slice(1).trim() : query.trim();
-
-    if (!cleanQuery) {
+    const rawClean = query.startsWith('/') ? query.slice(1).trim() : query.trim();
+    if (!rawClean) {
       return this.getAllCommands();
     }
 
-    const scoredItems = this.commands.map((cmd) => {
+    const minThreshold = rawClean.length <= 2 ? 35 : rawClean.length <= 3 ? 55 : 75;
+
+    const scoredItems = this.baseCommands.map((cmd) => {
       const prefixWithoutSlash = cmd.prefix.replace(/^\//, '');
-      const prefixScore = calculateFuzzyScore(cleanQuery, prefixWithoutSlash);
-      const labelScore = calculateFuzzyScore(cleanQuery, cmd.label);
-      const descScore = calculateFuzzyScore(cleanQuery, cmd.description);
-      const categoryScore = calculateFuzzyScore(cleanQuery, cmd.category);
+      const prefixScore = calculateFuzzyScore(rawClean, prefixWithoutSlash);
+      const labelScore = calculateFuzzyScore(rawClean, cmd.label);
+      const descScore = calculateFuzzyScore(rawClean, cmd.description);
+      const categoryScore = calculateFuzzyScore(rawClean, cmd.category);
 
       let keywordScore = 0;
       if (cmd.keywords) {
         for (const kw of cmd.keywords) {
-          const s = calculateFuzzyScore(cleanQuery, kw);
+          const s = calculateFuzzyScore(rawClean, kw);
           if (s > keywordScore) keywordScore = s;
         }
       }
 
-      // Compute total weighted maximum score
-      const maxScore = Math.max(
-        prefixScore * 1.5,
-        labelScore * 1.2,
-        keywordScore * 1.3,
-        categoryScore * 0.8,
-        descScore * 0.5
+      const totalScore = Math.max(
+        prefixScore * 1.8,
+        labelScore * 1.4,
+        keywordScore * 1.2,
+        categoryScore * 0.7,
+        descScore * 0.4
       );
 
-      return { cmd, score: maxScore };
+      return { cmd, score: totalScore };
     });
 
-    const matching = scoredItems.filter((item) => item.score > 15);
+    const matching = scoredItems.filter((item) => item.score >= minThreshold);
+    if (matching.length === 0) {
+      return [];
+    }
 
-    // Group matching items by category in standard order while sorting within each category by score
-    const categoryOrder: CommandCategory[] = ['system', 'model', 'skill', 'mcp'];
+    const categories: CommandCategory[] = ['system', 'mcp'];
+    const categoryMaxScores: Record<CommandCategory, number> = {
+      system: 0,
+      mcp: 0,
+    };
+
+    for (const item of matching) {
+      const cat = item.cmd.category;
+      if (item.score > categoryMaxScores[cat]) {
+        categoryMaxScores[cat] = item.score;
+      }
+    }
+
+    const sortedCategories = [...categories].sort(
+      (a, b) => categoryMaxScores[b] - categoryMaxScores[a]
+    );
+
     const result: SlashCommand[] = [];
+    for (const cat of sortedCategories) {
+      const catMatches = matching
+        .filter((item) => item.cmd.category === cat)
+        .sort((a, b) => b.score - a.score);
 
-    // If there is an overwhelmingly strong top match (e.g. exact or prefix match), ensure it leads
-    matching.sort((a, b) => b.score - a.score);
-
-    for (const cat of categoryOrder) {
-      const catMatches = matching.filter((item) => item.cmd.category === cat);
       result.push(...catMatches.map((item) => item.cmd));
     }
 
@@ -377,12 +284,12 @@ export class CommandRegistry {
   }
 
   public registerCommand(command: SlashCommand): void {
-    this.commands = this.commands.filter((c) => c.id !== command.id);
-    this.commands.push(command);
+    this.baseCommands = this.baseCommands.filter((c) => c.id !== command.id);
+    this.baseCommands.push(command);
   }
 
   public unregisterCommand(id: string): void {
-    this.commands = this.commands.filter((c) => c.id !== id);
+    this.baseCommands = this.baseCommands.filter((c) => c.id !== id);
   }
 }
 
@@ -397,13 +304,18 @@ export function getNextGridIndex(
   if (commands.length === 0) return 0;
   if (currentIndex < 0 || currentIndex >= commands.length) return 0;
 
-  // Build 2D coordinates for all commands grouped by category
-  const categories: CommandCategory[] = ['system', 'model', 'skill', 'mcp'];
+  const categoryOrder: CommandCategory[] = [];
+  for (const cmd of commands) {
+    if (!categoryOrder.includes(cmd.category)) {
+      categoryOrder.push(cmd.category);
+    }
+  }
+
   const grid: Array<Array<number>> = [];
   const itemToPos = new Map<number, { row: number; col: number }>();
 
   let globalIdx = 0;
-  for (const cat of categories) {
+  for (const cat of categoryOrder) {
     const group = commands.filter((c) => c.category === cat);
     if (group.length === 0) continue;
 
@@ -434,7 +346,6 @@ export function getNextGridIndex(
     if (pos.col + 1 < grid[pos.row].length) {
       targetCol = pos.col + 1;
     } else {
-      // Move to next row col 0
       targetRow = (pos.row + 1) % totalRows;
       targetCol = 0;
     }
@@ -442,7 +353,6 @@ export function getNextGridIndex(
     if (pos.col - 1 >= 0) {
       targetCol = pos.col - 1;
     } else {
-      // Move to previous row last col
       targetRow = (pos.row - 1 + totalRows) % totalRows;
       targetCol = grid[targetRow].length - 1;
     }

@@ -69,6 +69,8 @@ export interface ChatMessage {
   id: string;
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
+  reasoning?: string;
+  thinking?: string;
   tool_calls?: ToolCallPayload[];
   tool_call_id?: string;
 }

@@ -9,7 +9,7 @@ import {
   GmailDraftIntent,
   CalendarEventIntent,
 } from './types/island';
-import { SlashCommand, SessionRecord } from './types/commands';
+import { SlashCommand, SessionRecord, NotificationType } from './types/commands';
 import { sessionStorageService } from './services/session/sessionStorageService';
 import { NotchContainer } from './components/NotchContainer';
 import { useGlobalShortcut } from './hooks/useGlobalShortcut';
@@ -17,7 +17,7 @@ import { ReActEngine } from './services/agent/reactEngine';
 
 interface NotchNotification {
   text: string;
-  type?: 'info' | 'success' | 'warning';
+  type?: NotificationType;
 }
 
 export const App: React.FC = () => {
@@ -48,10 +48,6 @@ export const App: React.FC = () => {
   const [gmailIntent, setGmailIntent] = useState<GmailDraftIntent | null>(null);
   const [calendarIntent, setCalendarIntent] = useState<CalendarEventIntent | null>(null);
   const [notification, setNotification] = useState<NotchNotification | null>(null);
-  const [activeModel, setActiveModel] = useState<{ id: string; name: string }>({
-    id: 'antigravity',
-    name: 'Antigravity Core',
-  });
 
   const stateRef = useRef<IslandState>(state);
   stateRef.current = state;
@@ -70,7 +66,7 @@ export const App: React.FC = () => {
   }, [messages, activeSessionId]);
 
   const showNotification = useCallback(
-    (text: string, type: 'info' | 'success' | 'warning' = 'info') => {
+    (text: string, type: NotificationType = 'info') => {
       if (notificationTimerRef.current) {
         clearTimeout(notificationTimerRef.current);
       }
@@ -202,8 +198,14 @@ export const App: React.FC = () => {
     setApprovalRequest(null);
   }, []);
 
-  // Clear active conversation messages
+  // Clear active conversation & start fresh session (Unified Clean + New)
   const handleClearSession = useCallback(() => {
+    if (messages.length > 0 && activeSessionId) {
+      sessionStorageService.saveSessionMessages(activeSessionId, messages);
+    }
+    const newSession = sessionStorageService.createNewSession('New Conversation');
+    setActiveSessionId(newSession.id);
+    setSessions(sessionStorageService.getAllSessions());
     setMessages([]);
     setUserPrompt('');
     setIsStreaming(false);
@@ -213,18 +215,17 @@ export const App: React.FC = () => {
     setGmailIntent(null);
     setCalendarIntent(null);
     setIntentType('chat');
-    if (activeSessionId) {
-      sessionStorageService.saveSessionMessages(activeSessionId, []);
-      setSessions(sessionStorageService.getAllSessions());
-    }
-    showNotification('Canvas cleared', 'info');
+    showNotification('Session archived & clean canvas ready', 'success');
     setTimeout(() => {
       notchInputRef.current?.focus();
     }, 50);
-  }, [activeSessionId, showNotification]);
+  }, [messages, activeSessionId, showNotification]);
 
   // Start fresh conversation session
   const handleStartNewSession = useCallback(() => {
+    if (messages.length > 0 && activeSessionId) {
+      sessionStorageService.saveSessionMessages(activeSessionId, messages);
+    }
     const newSession = sessionStorageService.createNewSession('New Conversation');
     setActiveSessionId(newSession.id);
     setSessions(sessionStorageService.getAllSessions());
@@ -241,7 +242,7 @@ export const App: React.FC = () => {
     setTimeout(() => {
       notchInputRef.current?.focus();
     }, 50);
-  }, [showNotification]);
+  }, [messages, activeSessionId, showNotification]);
 
   // Open history drawer
   const handleOpenHistory = useCallback(() => {
@@ -332,7 +333,7 @@ export const App: React.FC = () => {
         notchInputRef.current?.focus();
       }, 50);
 
-      // Run Full ReAct Loop Orchestrator
+      // Run Full ReAct Loop Orchestrator with Antigravity Core
       reactEngineRef.current.runConversationTurn(
         trimmed,
         messages,
@@ -381,10 +382,10 @@ export const App: React.FC = () => {
             setActiveTool(null);
           },
         },
-        activeModel.id
+        'antigravity'
       );
     },
-    [messages, activeSessionId, activeModel.id]
+    [messages, activeSessionId]
   );
 
   // Command Execution Handler
@@ -406,10 +407,6 @@ export const App: React.FC = () => {
           };
           setMessages([summaryMsg]);
           showNotification('Context memory compressed', 'success');
-        },
-        switchModel: (modelId, modelName) => {
-          setActiveModel({ id: modelId, name: modelName });
-          showNotification(`Active model set to ${modelName}`, 'success');
         },
         injectPrompt: (prompt, autoSubmit) => {
           setUserPrompt(prompt);
@@ -480,8 +477,20 @@ export const App: React.FC = () => {
       if (e.ctrlKey && (e.key === ' ' || e.code === 'Space')) {
         e.preventDefault();
         e.stopPropagation();
-        setState((prev) => (prev === 'action' ? 'idle' : 'action'));
-        if (stateRef.current === 'action') {
+        const nextState = stateRef.current === 'action' ? 'idle' : 'action';
+        if (nextState === 'action') {
+          // If opening fresh and not streaming, present clean Dashboard Hub while preserving history
+          if (messages.length > 0 && !isStreaming && activeSessionId) {
+            sessionStorageService.saveSessionMessages(activeSessionId, messages);
+            const freshSess = sessionStorageService.createNewSession('New Conversation');
+            setActiveSessionId(freshSess.id);
+            setSessions(sessionStorageService.getAllSessions());
+            setMessages([]);
+          }
+          setIntentType('chat');
+        }
+        setState(nextState);
+        if (nextState === 'action') {
           setTimeout(() => {
             notchInputRef.current?.focus();
           }, 50);
@@ -587,6 +596,7 @@ export const App: React.FC = () => {
         notification={notification}
         sessions={sessions}
         activeSessionId={activeSessionId}
+        activeModelName="Antigravity Core"
         inputRef={notchInputRef}
         onApproveTool={handleApproveTool}
         onDenyTool={handleDenyTool}
@@ -596,7 +606,21 @@ export const App: React.FC = () => {
         onSelectSession={handleSelectSession}
         onNewSession={handleStartNewSession}
         onDeleteSession={handleDeleteSession}
+        onOpenHistory={handleOpenHistory}
         onCloseHistory={handleCloseHistory}
+        onInjectPrompt={(prompt, autoSubmit) => {
+          setUserPrompt(prompt);
+          if (autoSubmit) {
+            handlePromptSubmit(prompt);
+          } else {
+            if (stateRef.current === 'idle') {
+              setState('typing');
+            }
+            setTimeout(() => {
+              notchInputRef.current?.focus();
+            }, 50);
+          }
+        }}
         onClearSession={handleClearSession}
         onNotchClick={handleNotchClick}
         onActionComplete={handleActionComplete}

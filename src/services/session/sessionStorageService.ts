@@ -4,6 +4,28 @@ import { ChatMessage } from '../../types/island';
 const STORAGE_KEY = 'mavis_voice_island_sessions_v1';
 const ACTIVE_SESSION_KEY = 'mavis_voice_island_active_session_id';
 
+export function generateIntelligentTitle(prompt: string): string {
+  let clean = prompt.trim();
+  // Remove common preambles in Persian and English
+  clean = clean.replace(
+    /^(please|can you|could you|help me with|i want to|how to|what is|search for|list all|show me|explain|write|بررسی|لطفا|میخوام|چطور|لیست|تولید|کد|توضیح)\s+/i,
+    ''
+  );
+  clean = clean.replace(/[?؟.!:]+$/, '').trim();
+
+  if (!clean) return 'New Conversation';
+
+  // Capitalize first letter if Latin
+  if (/^[a-zA-Z]/.test(clean)) {
+    clean = clean.charAt(0).toUpperCase() + clean.slice(1);
+  }
+
+  if (clean.length > 38) {
+    return `${clean.slice(0, 35)}...`;
+  }
+  return clean;
+}
+
 class SessionStorageService {
   private memoryState: SessionStorageState = {
     activeSessionId: '',
@@ -78,6 +100,15 @@ class SessionStorageService {
   }
 
   public createNewSession(initialTitle = 'New Conversation'): SessionRecord {
+    // If active session exists and is empty, reuse it instead of piling empty records
+    const currentActive = this.getActiveSession();
+    if (currentActive && currentActive.messages.length === 0) {
+      currentActive.title = initialTitle;
+      currentActive.updatedAt = Date.now();
+      this.persist();
+      return currentActive;
+    }
+
     const id = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const now = Date.now();
     const newSession: SessionRecord = {
@@ -98,18 +129,32 @@ class SessionStorageService {
 
   public saveSessionMessages(sessionId: string, messages: ChatMessage[], customTitle?: string): void {
     const idx = this.memoryState.sessions.findIndex((s) => s.id === sessionId);
-    if (idx === -1) return;
+    if (idx === -1) {
+      // If session not found, create and insert it
+      const firstUserMsg = messages.find((m) => m.role === 'user' && m.content.trim().length > 0);
+      const title = customTitle || (firstUserMsg ? generateIntelligentTitle(firstUserMsg.content) : 'New Conversation');
+      const newRec: SessionRecord = {
+        id: sessionId,
+        title,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        messages,
+        tokenCount: 0,
+      };
+      this.memoryState.sessions.unshift(newRec);
+      this.persist();
+      return;
+    }
 
     const existing = this.memoryState.sessions[idx];
     const now = Date.now();
 
-    // Generate intelligent title from the first user message if not already customized
+    // Auto-generate title from the first user message if title is default
     let title = customTitle || existing.title;
     if ((!existing.title || existing.title === 'New Conversation' || existing.title === 'Initial Session') && !customTitle) {
       const firstUserMsg = messages.find((m) => m.role === 'user' && m.content.trim().length > 0);
       if (firstUserMsg) {
-        const text = firstUserMsg.content.trim();
-        title = text.length > 38 ? `${text.slice(0, 35)}...` : text;
+        title = generateIntelligentTitle(firstUserMsg.content);
       }
     }
 

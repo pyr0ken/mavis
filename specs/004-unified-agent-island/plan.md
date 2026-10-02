@@ -66,7 +66,7 @@
 ## 4. Deliverables & File Mapping
 
 ```
-voice-island/
+mavis/
 ├── src-tauri/
 │   ├── Cargo.toml                    # rusqlite with bundled-full (FTS5)
 │   ├── tauri.conf.json

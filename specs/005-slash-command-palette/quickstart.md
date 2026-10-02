@@ -8,7 +8,7 @@
 ## 1. Prerequisites & Build Check
 
 ```bash
-cd /home/omid/Code/ai/voice-island
+cd /home/omid/Code/ai/mavis
 npm run build
 ```
 

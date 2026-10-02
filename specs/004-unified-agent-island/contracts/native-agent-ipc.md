@@ -39,7 +39,7 @@ Scans the filesystem/workspace for files matching a name glob or content regex p
   ```json
   {
     "pattern": "*.tsx",
-    "path": "/home/omid/Code/ai/voice-island/src",
+    "path": "/home/omid/Code/ai/mavis/src",
     "maxResults": 50
   }
   ```
@@ -47,8 +47,8 @@ Scans the filesystem/workspace for files matching a name glob or content regex p
   ```json
   {
     "matches": [
-      "/home/omid/Code/ai/voice-island/src/App.tsx",
-      "/home/omid/Code/ai/voice-island/src/components/NotchContainer.tsx"
+      "/home/omid/Code/ai/mavis/src/App.tsx",
+      "/home/omid/Code/ai/mavis/src/components/NotchContainer.tsx"
     ],
     "total_found": 2
   }
@@ -63,7 +63,7 @@ Reads the content of a target text file with automatic size and line-count budge
 - **Request Payload**:
   ```json
   {
-    "path": "/home/omid/Code/ai/voice-island/package.json",
+    "path": "/home/omid/Code/ai/mavis/package.json",
     "maxLines": 100
   }
   ```

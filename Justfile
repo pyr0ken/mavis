@@ -5,7 +5,7 @@
 default:
     @just --list
 
-# Run native desktop app in development mode
+# Run native desktop app in development mode (foreground interactive)
 dev:
     npm run tauri dev
 
@@ -39,3 +39,41 @@ fmt:
 clean:
     rm -rf dist
     cd src-tauri && cargo clean
+
+# --- Development Systemd Service Management ---
+
+# Start Mavis dev background service
+service-start:
+    systemctl --user daemon-reload
+    systemctl --user start mavis-dev.service
+    @echo "Mavis Dev Service started. Check status with 'just service-status'."
+
+# Stop Mavis dev background service
+service-stop:
+    systemctl --user stop mavis-dev.service
+    @echo "Mavis Dev Service stopped."
+
+# Restart Mavis dev background service
+service-restart:
+    systemctl --user daemon-reload
+    systemctl --user restart mavis-dev.service
+    @echo "Mavis Dev Service restarted."
+
+# View status of Mavis dev background service
+service-status:
+    systemctl --user status mavis-dev.service
+
+# Stream live logs from Mavis dev service
+service-logs:
+    journalctl --user -u mavis-dev.service -f -o cat
+
+# Enable Mavis dev service to start automatically on login
+service-enable:
+    systemctl --user daemon-reload
+    systemctl --user enable mavis-dev.service
+    @echo "Mavis Dev Service enabled for auto-start on graphical login."
+
+# Disable Mavis dev service auto-start
+service-disable:
+    systemctl --user disable mavis-dev.service
+    @echo "Mavis Dev Service auto-start disabled."

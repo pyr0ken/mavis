@@ -42,6 +42,28 @@ npm run dev
 ### 2. Tauri 2.0 Desktop Overlay
 ```bash
 npm run tauri dev
+# or via Just
+just dev
+```
+
+### 3. Persistent Development Service (Background Daemon + Live HMR)
+To keep Mavis always running in development mode as a user service (with auto-restart, Vite HMR, and Tauri Rust hot watcher):
+```bash
+# Start background service
+just service-start
+
+# Check service status
+just service-status
+
+# Stream live build/HMR logs
+just service-logs
+
+# Restart or stop
+just service-restart
+just service-stop
+
+# Enable auto-start on login
+just service-enable
 ```
 
 ---

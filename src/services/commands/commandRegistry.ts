@@ -1,4 +1,5 @@
 import { SlashCommand, CommandCategory } from '../../types/commands';
+import { mediaService } from '../media/mediaService';
 
 function levenshteinDistance(a: string, b: string): number {
   if (a.length === 0) return b.length;
@@ -127,6 +128,23 @@ export class CommandRegistry {
         },
       },
       {
+        id: 'cmd-todo',
+        prefix: '/todo',
+        label: 'Todo List & Focus',
+        description: 'Manage tasks, priorities, and ambient Now Doing in notch',
+        category: 'system',
+        icon: 'CheckSquare',
+        shortcut: 'Ctrl+T',
+        keywords: ['todo', 'task', 'doing', 'focus', 'tasks', 'list', 'check', 'تودو', 'تسک'],
+        execute: (ctx) => {
+          if (ctx.openTodo) {
+            ctx.openTodo();
+          } else {
+            ctx.showNotification('Opening Todo List', 'info');
+          }
+        },
+      },
+      {
         id: 'cmd-clear',
         prefix: '/clear',
         label: 'Clear Canvas & Reset',
@@ -199,6 +217,68 @@ export class CommandRegistry {
         keywords: ['tools', 'bash', 'functions', 'schemas', 'system'],
         execute: (ctx) => {
           ctx.injectPrompt('Display the catalog of local system tools available to the ReAct engine.', true);
+        },
+      },
+      // 3. Spotify & MPRIS Media Player Controls
+      {
+        id: 'cmd-spotify',
+        prefix: '/spotify',
+        label: 'Spotify Media Controller',
+        description: 'Open the floating Spotify Now Playing card with live controls',
+        category: 'mcp',
+        icon: 'Music',
+        shortcut: 'Ctrl+M',
+        keywords: ['spotify', 'music', 'song', 'player', 'mpris', 'اسپاتیفای', 'اهنگ', 'موزیک'],
+        execute: (ctx) => {
+          if (ctx.openSpotify) {
+            ctx.openSpotify();
+          } else {
+            ctx.showNotification('Opening Spotify Controller', 'info');
+          }
+        },
+      },
+      {
+        id: 'cmd-media-play',
+        prefix: '/play',
+        label: 'Play / Pause Media',
+        description: 'Toggle playback on Spotify or active desktop MPRIS player',
+        category: 'mcp',
+        icon: 'Play',
+        keywords: ['play', 'pause', 'toggle', 'resume', 'stop', 'پخش', 'توقف'],
+        execute: async (ctx) => {
+          const res = await mediaService.togglePlayPause();
+          ctx.showNotification(
+            res.status === 'Playing'
+              ? `Playing: ${res.title || 'Track'}`
+              : `Paused: ${res.title || 'Playback'}`,
+            'info'
+          );
+        },
+      },
+      {
+        id: 'cmd-media-next',
+        prefix: '/next',
+        label: 'Next Track',
+        description: 'Skip to next song on Spotify / active player',
+        category: 'mcp',
+        icon: 'SkipForward',
+        keywords: ['next', 'skip', 'forward', 'بعدی'],
+        execute: async (ctx) => {
+          const res = await mediaService.next();
+          ctx.showNotification(`Skipped to next: ${res.title || 'track'}`, 'info');
+        },
+      },
+      {
+        id: 'cmd-media-prev',
+        prefix: '/prev',
+        label: 'Previous Track',
+        description: 'Return to previous song on Spotify / active player',
+        category: 'mcp',
+        icon: 'SkipBack',
+        keywords: ['prev', 'previous', 'back', 'قبلی'],
+        execute: async (ctx) => {
+          const res = await mediaService.previous();
+          ctx.showNotification(`Previous: ${res.title || 'track'}`, 'info');
         },
       },
     ];

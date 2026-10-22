@@ -17,7 +17,12 @@ import {
   Cpu,
   Wrench,
   Terminal,
+  CheckSquare,
   CornerDownLeft,
+  Music,
+  Play,
+  SkipForward,
+  SkipBack,
 } from 'lucide-react';
 import { SlashCommand, CommandCategory } from '../types/commands';
 
@@ -80,6 +85,16 @@ const renderIcon = (iconName: string) => {
       return <Cpu {...iconProps} className="text-amber-400" />;
     case 'Wrench':
       return <Wrench {...iconProps} className="text-sky-400" />;
+    case 'CheckSquare':
+      return <CheckSquare {...iconProps} className="text-emerald-400" />;
+    case 'Music':
+      return <Music {...iconProps} className="text-emerald-400" />;
+    case 'Play':
+      return <Play {...iconProps} className="text-green-400" />;
+    case 'SkipForward':
+      return <SkipForward {...iconProps} className="text-teal-400" />;
+    case 'SkipBack':
+      return <SkipBack {...iconProps} className="text-teal-400" />;
     default:
       return <Terminal {...iconProps} className="text-slate-400" />;
   }

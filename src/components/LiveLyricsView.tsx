@@ -9,6 +9,8 @@ interface LiveLyricsViewProps {
   currentPositionMs: number;
   isPlaying?: boolean;
   onSeek: (positionMs: number) => void;
+  accentColor?: string;
+  glowColor?: string;
   className?: string;
 }
 
@@ -19,13 +21,15 @@ export const LiveLyricsView: React.FC<LiveLyricsViewProps> = ({
   currentPositionMs,
   isPlaying = true,
   onSeek,
+  accentColor = '#10b981',
+  glowColor = 'rgba(16, 185, 129, 0.45)',
   className = '',
 }) => {
   const [lyrics, setLyrics] = useState<SongLyrics | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [offsetMs, setOffsetMs] = useState<number>(() => {
     const saved = localStorage.getItem('mavis_lyrics_offset_ms');
-    return saved !== null ? parseInt(saved, 10) : -650;
+    return saved !== null ? parseInt(saved, 10) : 0;
   });
   const activeLineRef = useRef<HTMLDivElement | null>(null);
 
@@ -78,7 +82,6 @@ export const LiveLyricsView: React.FC<LiveLyricsViewProps> = ({
   }, [title, artist, durationMs]);
 
   const lines = lyrics?.lines || [];
-  const hasLiveDirectText = Boolean(lyrics?.liveActiveLine);
 
   // Determine active line index: last line whose start time <= syncedPositionMs
   let activeIndex = 0;
@@ -95,9 +98,8 @@ export const LiveLyricsView: React.FC<LiveLyricsViewProps> = ({
   const nextLine: LyricLine | null = activeIndex < lines.length - 1 ? lines[activeIndex + 1] : null;
   const futureLine: LyricLine | null = activeIndex < lines.length - 2 ? lines[activeIndex + 2] : null;
 
-  const activeLineText = lyrics?.liveActiveLine || (activeLine ? activeLine.text : '');
-  const prevLineText = lyrics?.livePrevLine || (prevLine ? prevLine.text : '');
-  const nextLineText = lyrics?.liveNextLine || (nextLine ? nextLine.text : '');
+  const prevLineText = prevLine ? prevLine.text : '';
+  const nextLineText = nextLine ? nextLine.text : '';
 
   return (
     <div
@@ -115,7 +117,7 @@ export const LiveLyricsView: React.FC<LiveLyricsViewProps> = ({
             SYNCING LIVE LYRICS...
           </span>
         </div>
-      ) : !lyrics || (lines.length === 0 && !hasLiveDirectText) ? (
+      ) : !lyrics || lines.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center space-y-3 px-6">
           <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-slate-500">
             <Music2 size={24} className="stroke-[1.5]" />
@@ -143,70 +145,63 @@ export const LiveLyricsView: React.FC<LiveLyricsViewProps> = ({
             </div>
           )}
 
-          {/* ACTIVE SENTENCE (Front, Bold, Large with Smooth Green Aura Progression) */}
-          {activeLineText && (
+          {/* ACTIVE SENTENCE (Front, Bold, Large with Smooth Dynamic Aura Progression) */}
+          {activeLine && (
             <div
               ref={activeLineRef}
-              onClick={() => activeLine && onSeek(activeLine.timeMs)}
+              onClick={() => onSeek(activeLine.timeMs)}
               className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-relaxed cursor-pointer select-text transition-all duration-300 py-1"
             >
-              {hasLiveDirectText ? (
-                /* Pure 1:1 Live Mirror of Chrome Spotify Active Lyric */
-                <span className="relative inline-block text-white font-black">
-                  <span className="absolute -inset-x-3 -inset-y-1 rounded-xl bg-gradient-to-r from-emerald-500/30 via-teal-400/35 to-emerald-500/30 blur-sm pointer-events-none animate-pulse" />
-                  <span className="relative z-10 text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 via-white to-emerald-100 drop-shadow-[0_0_18px_rgba(52,211,153,0.95)]">
-                    {activeLineText}
-                  </span>
-                </span>
-              ) : activeLine ? (
-                activeLine.words.map((word, wIdx) => {
-                  const isPast = syncedPositionMs >= word.endMs;
-                  const isCurrent =
-                    isPlaying &&
-                    syncedPositionMs >= word.startMs &&
-                    syncedPositionMs <= word.endMs + 100;
+              {activeLine.words.map((word, wIdx) => {
+                const isPast = syncedPositionMs >= word.endMs;
+                const isCurrent =
+                  isPlaying &&
+                  syncedPositionMs >= word.startMs &&
+                  syncedPositionMs <= word.endMs + 100;
 
-                  // Continuous word progress (0.0 -> 1.0)
-                  const wordDur = Math.max(80, word.endMs - word.startMs);
-                  const progressRatio = Math.max(
-                    0,
-                    Math.min(1, (syncedPositionMs - word.startMs) / wordDur)
-                  );
+                // Continuous word progress (0.0 -> 1.0)
+                const wordDur = Math.max(80, word.endMs - word.startMs);
+                const progressRatio = Math.max(
+                  0,
+                  Math.min(1, (syncedPositionMs - word.startMs) / wordDur)
+                );
 
-                  return (
-                    <span key={wIdx} className="relative inline-block mr-2.5 my-0.5">
-                      {isCurrent && (
-                        <span className="absolute -inset-x-2 -inset-y-1 rounded-xl bg-gradient-to-r from-emerald-500/25 via-teal-400/30 to-emerald-500/25 blur-sm pointer-events-none transition-opacity duration-200 animate-pulse" />
-                      )}
+                return (
+                  <span key={wIdx} className="relative inline-block mr-2.5 my-0.5">
+                    {isCurrent && (
                       <span
-                        style={
-                          isCurrent
-                            ? {
-                                background: `linear-gradient(90deg, #a7f3d0 0%, #34d399 ${Math.round(
-                                  progressRatio * 100
-                                )}%, rgba(255,255,255,0.35) ${Math.min(
-                                  100,
-                                  Math.round(progressRatio * 100 + 20)
-                                )}%)`,
-                                WebkitBackgroundClip: 'text',
-                                WebkitTextFillColor: 'transparent',
-                              }
-                            : undefined
-                        }
-                        className={`relative z-10 transition-all duration-150 ${
-                          isCurrent
-                            ? 'font-black scale-[1.05] drop-shadow-[0_0_18px_rgba(52,211,153,0.95)] inline-block'
-                            : isPast
-                            ? 'text-white font-bold drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]'
-                            : 'text-white/28 font-medium'
-                        }`}
-                      >
-                        {word.text}
-                      </span>
+                        className="absolute -inset-x-2 -inset-y-1 rounded-xl blur-sm pointer-events-none transition-opacity duration-200 animate-pulse"
+                        style={{ background: glowColor }}
+                      />
+                    )}
+                    <span
+                      style={
+                        isCurrent
+                          ? {
+                              background: `linear-gradient(90deg, #ffffff 0%, ${accentColor} ${Math.round(
+                                progressRatio * 100
+                              )}%, rgba(255,255,255,0.35) ${Math.min(
+                                100,
+                                Math.round(progressRatio * 100 + 20)
+                              )}%)`,
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                            }
+                          : undefined
+                      }
+                      className={`relative z-10 transition-all duration-150 ${
+                        isCurrent
+                          ? 'font-black scale-[1.05] inline-block'
+                          : isPast
+                          ? 'text-white font-bold drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]'
+                          : 'text-white/28 font-medium'
+                      }`}
+                    >
+                      {word.text}
                     </span>
-                  );
-                })
-              ) : null}
+                  </span>
+                );
+              })}
             </div>
           )}
 

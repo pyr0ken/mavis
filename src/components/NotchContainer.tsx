@@ -20,6 +20,11 @@ import { CalendarEventCard } from './CalendarEventCard';
 import { SlashCommandPalette } from './SlashCommandPalette';
 import { HistoryDrawer } from './HistoryDrawer';
 import { DashboardHubCard } from './DashboardHubCard';
+import { TodoListCard } from './TodoListCard';
+import { SpotifyCard } from './SpotifyCard';
+import { AmbientNowDoing } from './AmbientNowDoing';
+import { todoStorageService } from '../services/todo/todoStorageService';
+import { TodoItem } from '../types/todo';
 import { useIslandAnimation } from '../hooks/useIslandAnimation';
 import { useAnimatedPlaceholder } from '../hooks/useAnimatedPlaceholder';
 
@@ -58,6 +63,8 @@ interface NotchContainerProps {
   onDeleteSession?: (sessionId: string) => void;
   onOpenHistory?: () => void;
   onCloseHistory?: () => void;
+  onOpenTodo?: () => void;
+  onOpenSpotify?: () => void;
   onInjectPrompt?: (prompt: string, autoSubmit?: boolean) => void;
   onClearSession?: () => void;
   onNotchClick: () => void;
@@ -102,6 +109,8 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
   onDeleteSession,
   onOpenHistory,
   onCloseHistory,
+  onOpenTodo,
+  onOpenSpotify,
   onInjectPrompt,
   onClearSession,
   onNotchClick,
@@ -115,6 +124,17 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
   const successContentRef = useRef<HTMLDivElement | null>(null);
   const localTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const activeInputRef = inputRef || localTextareaRef;
+
+  const [activeDoingItem, setActiveDoingItem] = useState<TodoItem | null>(() =>
+    todoStorageService.getActiveDoingItem()
+  );
+
+  useEffect(() => {
+    const unsub = todoStorageService.subscribe(() => {
+      setActiveDoingItem(todoStorageService.getActiveDoingItem());
+    });
+    return unsub;
+  }, []);
 
   const [paletteSelectedIndex, setPaletteSelectedIndex] = useState(0);
   const [isIdleSettled, setIsIdleSettled] = useState(false);
@@ -302,17 +322,29 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
           )}
         </div>
 
-        {/* Center: Ghost Typing Field with Glowing Live Typewriter Placeholder */}
-        {!isListening && (
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              activeInputRef.current?.focus();
-            }}
-            className={`flex-1 flex px-3 cursor-text relative h-full overflow-hidden ${
-              lineCount > 1 ? 'items-start pt-1.5' : 'items-center'
-            }`}
-          >
+        {/* Center: Ghost Typing Field with Glowing Live Typewriter Placeholder OR Ambient Now Doing */}
+        {!isListening &&
+          (state === 'idle' && !userPrompt && activeDoingItem ? (
+            <AmbientNowDoing
+              activeItem={activeDoingItem}
+              onOpenTodoCard={() => {
+                onOpenTodo?.();
+              }}
+              onQuickComplete={(item) => {
+                todoStorageService.toggleStatus(item.id);
+                onActionComplete();
+              }}
+            />
+          ) : (
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                activeInputRef.current?.focus();
+              }}
+              className={`flex-1 flex px-3 cursor-text relative h-full overflow-hidden ${
+                lineCount > 1 ? 'items-start pt-1.5' : 'items-center'
+              }`}
+            >
             {/* Animated High-Contrast Suggestion Placeholder Overlay (when idle and not hidden) */}
             {isPlaceholderActive && (
               <div className="absolute inset-x-3 inset-y-0 flex items-center pointer-events-none text-sm text-[#cbd5e1] font-normal tracking-wide overflow-hidden select-none z-0">
@@ -407,7 +439,7 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
               className="w-full bg-transparent text-sm font-medium text-white leading-[24px] tracking-wide outline-none resize-none overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden placeholder:text-gray-500/60 focus:text-white relative z-10 selection:bg-sky-500/50 selection:text-white text-start caret-white m-0 p-0"
             />
           </div>
-        )}
+        ))}
       </div>
 
       {/* Surface Layer 2: Action Content Panel - Monolithic Unified Obsidian Canvas */}
@@ -461,6 +493,16 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
                     onSave={onActionComplete}
                   />
                 </div>
+              ) : intentType === 'todo' ? (
+                <TodoListCard
+                  active={isAction}
+                  onClose={onActionComplete}
+                />
+              ) : intentType === 'spotify' ? (
+                <SpotifyCard
+                  active={isAction}
+                  onClose={onActionComplete}
+                />
               ) : intentType === 'history' ? (
                 <HistoryDrawer
                   sessions={sessions}
@@ -487,6 +529,12 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
                   }}
                   onOpenHistory={() => {
                     onOpenHistory?.();
+                  }}
+                  onOpenTodo={() => {
+                    onOpenTodo?.();
+                  }}
+                  onOpenSpotify={() => {
+                    onOpenSpotify?.();
                   }}
                   onExecuteCommand={(cmd) => {
                     onExecuteCommand?.(cmd);

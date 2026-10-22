@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, LogicalPosition, LogicalSize, Manager, WebviewWindow};
 
 pub mod db;
+pub mod media;
 
 #[cfg(target_os = "linux")]
 use gtk::prelude::*;
@@ -549,10 +550,19 @@ pub fn run() {
             set_user_profile_key,
             search_messages_fts,
             save_session_message,
-            call_model_api
+            call_model_api,
+            media::get_media_status,
+            media::send_media_command,
+            media::launch_spotify,
+            media::start_audio_visualizer,
+            media::stop_audio_visualizer,
+            media::fetch_lyrics
         ])
         .setup(|app| {
             let handle = app.handle().clone();
+
+            // Start Chrome Spotify Live Lyrics Bridge on http://127.0.0.1:20261/lyrics
+            media::start_lyrics_server(handle.clone());
 
             // Prepare window position and apply native Wayland Layer Shell (or X11 Dock fallback)
             if let Some(window) = app.get_webview_window("main") {

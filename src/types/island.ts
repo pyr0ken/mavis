@@ -63,7 +63,7 @@ export interface DesktopWorkspaceContext {
   activeIntentType: 'NONE' | 'GMAIL_COMPOSE' | 'CALENDAR_EVENT' | 'VOICE_STREAM';
 }
 
-export type ActionCardType = 'gmail' | 'calendar' | 'chat' | 'history';
+export type ActionCardType = 'gmail' | 'calendar' | 'chat' | 'history' | 'todo' | 'spotify';
 
 export interface ChatMessage {
   id: string;

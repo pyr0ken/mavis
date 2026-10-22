@@ -17,6 +17,8 @@ export interface CommandExecutionContext {
 
   // UI & Overlay Controls
   closePalette: () => void;
+  openTodo?: () => void;
+  openSpotify?: () => void;
   showNotification: (text: string, type?: NotificationType) => void;
 }
 

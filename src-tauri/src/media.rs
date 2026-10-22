@@ -81,6 +81,22 @@ pub fn is_player_spotify(player: &str) -> bool {
     false
 }
 
+fn is_social_media_player(url: &str, title: &str) -> bool {
+    let lower_url = url.to_lowercase();
+    let lower_title = title.to_lowercase();
+
+    lower_url.contains("x.com")
+        || lower_url.contains("twitter.com")
+        || lower_url.contains("instagram.com")
+        || lower_url.contains("tiktok.com")
+        || lower_url.contains("facebook.com")
+        || lower_url.contains("threads.net")
+        || lower_url.contains("reddit.com")
+        || lower_title.contains(" on x:")
+        || lower_title.contains(" on twitter:")
+        || lower_title.contains("twitter:")
+}
+
 /// Determines the best target player, prioritizing active playback, rich metadata, and Spotify.
 fn resolve_target_player(player: Option<&str>, players: &[String]) -> Option<String> {
     if let Some(p) = player {
@@ -109,12 +125,10 @@ fn resolve_target_player(player: Option<&str>, players: &[String]) -> Option<Str
 
             let lower = p.to_lowercase();
             if lower.contains("spotify") {
-                score += 100; // Dedicated desktop client
+                score += 300; // Dedicated desktop client
             } else if lower.contains("plasma-browser-integration") {
                 score += 80; // Rich browser extension bridge (always prefer over raw chromium)
             } else if lower.contains("chromium") {
-                // If plasma-browser-integration is also present, demote raw chromium because
-                // chromium native MPRIS on Linux freezes xesam:title on the first track
                 if has_plasma {
                     score -= 50;
                 } else {
@@ -143,6 +157,11 @@ fn resolve_target_player(player: Option<&str>, players: &[String]) -> Option<Str
                     let art_url = parts.get(3).unwrap_or(&"").trim();
                     let url = parts.get(4).unwrap_or(&"").trim();
 
+                    // Instantly reject social media video clips (Twitter, X, Instagram, etc.)
+                    if is_social_media_player(url, title) {
+                        return (-10000, p.clone());
+                    }
+
                     if !artist.is_empty() {
                         score += 40;
                     }
@@ -153,10 +172,11 @@ fn resolve_target_player(player: Option<&str>, players: &[String]) -> Option<Str
                         score += 20;
                     }
                     if url.to_lowercase().contains("spotify.com")
+                        || art_url.contains("scdn.co")
                         || title.to_lowercase().contains("spotify")
                         || album.to_lowercase().contains("spotify")
                     {
-                        score += 50;
+                        score += 500; // Dominant priority for genuine Spotify playback!
                     }
                 }
             }
@@ -166,7 +186,12 @@ fn resolve_target_player(player: Option<&str>, players: &[String]) -> Option<Str
         .collect();
 
     scored.sort_by(|a, b| b.0.cmp(&a.0));
-    scored.first().map(|(_, p)| p.clone())
+    if let Some((best_score, best_player)) = scored.first() {
+        if *best_score > 0 {
+            return Some(best_player.clone());
+        }
+    }
+    None
 }
 
 /// Converts local file:// artwork paths to base64 data URLs so webview doesn't block them.
@@ -785,17 +810,76 @@ pub async fn fetch_lyrics(
         .replace(" - Single", "")
         .replace(" - Remastered", "")
         .trim()
-        .to_lowercase();
+        .to_string();
 
-    let lock = SPOTIFY_SESSION_LYRICS.lock().unwrap();
-    if let Some(session_lyrics) = &*lock {
-        let cached_title = session_lyrics.title.to_lowercase();
-        if !cached_title.is_empty() && !clean_title.is_empty() {
-            if cached_title.contains(&clean_title) || clean_title.contains(&cached_title) {
-                return Ok(session_lyrics.clone());
+    let clean_artist = artist
+        .split('(').next().unwrap_or(&artist)
+        .split('[').next().unwrap_or(&artist)
+        .split(',').next().unwrap_or(&artist)
+        .split('&').next().unwrap_or(&artist)
+        .trim()
+        .to_string();
+
+    eprintln!("[lyrics] Fetching verified synced lyrics for '{}' by '{}'", clean_title, clean_artist);
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
+
+    // 1. Direct query by exact title & artist
+    if let Ok(res) = client
+        .get("https://lrclib.net/api/get")
+        .query(&[("artist_name", clean_artist.as_str()), ("track_name", clean_title.as_str())])
+        .send()
+        .await
+    {
+        if res.status().is_success() {
+            if let Ok(json) = res.json::<serde_json::Value>().await {
+                if let Some(synced) = json.get("syncedLyrics").and_then(|v| v.as_str()) {
+                    if !synced.trim().is_empty() {
+                        return Ok(LyricsPayload {
+                            title,
+                            artist,
+                            synced_lyrics: Some(synced.to_string()),
+                            plain_lyrics: json.get("plainLyrics").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                            live_active_line: None,
+                            live_prev_line: None,
+                            live_next_line: None,
+                        });
+                    }
+                }
             }
-        } else if session_lyrics.synced_lyrics.is_some() && clean_title.is_empty() {
-            return Ok(session_lyrics.clone());
+        }
+    }
+
+    // 2. Search query fallback
+    let search_q = format!("{} {}", clean_title, clean_artist);
+    if let Ok(res) = client
+        .get("https://lrclib.net/api/search")
+        .query(&[("q", &search_q)])
+        .send()
+        .await
+    {
+        if res.status().is_success() {
+            if let Ok(list) = res.json::<Vec<serde_json::Value>>().await {
+                for item in list {
+                    if let Some(synced) = item.get("syncedLyrics").and_then(|v| v.as_str()) {
+                        if !synced.trim().is_empty() {
+                            return Ok(LyricsPayload {
+                                title,
+                                artist,
+                                synced_lyrics: Some(synced.to_string()),
+                                plain_lyrics: item.get("plainLyrics").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                                live_active_line: None,
+                                live_prev_line: None,
+                                live_next_line: None,
+                            });
+                        }
+                    }
+                }
+            }
         }
     }
 

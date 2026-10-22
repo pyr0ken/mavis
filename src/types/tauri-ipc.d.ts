@@ -27,6 +27,30 @@ export interface FtsSearchResult {
   rank: number;
 }
 
+export interface MediaStatus {
+  player: string;
+  status: 'Playing' | 'Paused' | 'Stopped' | 'None' | string;
+  artist: string;
+  title: string;
+  album: string;
+  art_url: string;
+  position_ms: number;
+  length_ms: number;
+  volume: number;
+  is_spotify: boolean;
+  available_players: string[];
+}
+
+export interface LyricsPayload {
+  title: string;
+  artist: string;
+  synced_lyrics?: string | null;
+  plain_lyrics?: string | null;
+  live_active_line?: string | null;
+  live_prev_line?: string | null;
+  live_next_line?: string | null;
+}
+
 export interface WindowCommands {
   center_top_window: () => Promise<void>;
   show_window: () => Promise<void>;
@@ -38,6 +62,12 @@ export interface WindowCommands {
   search_messages_fts: (args: { query: string; limit?: number }) => Promise<FtsSearchResult[]>;
   get_user_profile: () => Promise<Record<string, string>>;
   set_user_profile_key: (args: { key: string; value: string }) => Promise<void>;
+  get_media_status: (args?: { player?: string }) => Promise<MediaStatus>;
+  send_media_command: (args: { command: string; player?: string }) => Promise<MediaStatus>;
+  launch_spotify: () => Promise<boolean>;
+  start_audio_visualizer: (args?: { bars?: number }) => Promise<boolean>;
+  stop_audio_visualizer: () => Promise<void>;
+  fetch_lyrics: (args: { title: string; artist: string }) => Promise<LyricsPayload>;
 }
 
 declare global {

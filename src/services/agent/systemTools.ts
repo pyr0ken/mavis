@@ -106,6 +106,24 @@ export const SYSTEM_TOOLS: ToolDefinition[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'spotify_control',
+      description: 'Control Spotify or active desktop media playback (play, pause, toggle, next, previous, status, launch).',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['play', 'pause', 'toggle', 'next', 'previous', 'status', 'launch'],
+            description: 'The media playback action to perform',
+          },
+        },
+        required: ['action'],
+      },
+    },
+  },
 ];
 
 // Helper to determine if a shell command is mutating/destructive and requires user approval

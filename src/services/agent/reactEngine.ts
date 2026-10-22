@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { ChatMessage, ToolExecutionState, ToolApprovalRequest, ToolCallPayload, GmailDraftIntent, CalendarEventIntent } from '../../types/island';
 import { SYSTEM_TOOLS, isMutatingShellCommand } from './systemTools';
 import { ShellExecResult, FileSearchResult, FileReadResult } from '../../types/tauri-ipc';
+import { mediaService } from '../media/mediaService';
 
 export interface ReActEngineCallbacks {
   onThinkingChange: (thinking: boolean) => void;
@@ -245,6 +246,36 @@ Context & Directives:
                 toolState.result = toolOutput;
               } catch (err) {
                 toolOutput = `Error reading file: ${(err as Error).message}`;
+                toolState.status = 'failed';
+                toolState.error = toolOutput;
+              }
+            } else if (toolName === 'spotify_control') {
+              try {
+                const action = String(parsedArgs.action || 'status');
+                if (action === 'launch') {
+                  await mediaService.launchSpotify();
+                  toolOutput = 'Successfully launched Spotify / open.spotify.com.';
+                } else if (action === 'status') {
+                  const res = await mediaService.refreshStatus();
+                  toolOutput = res.status !== 'None'
+                    ? `Player: ${res.player} | Status: ${res.status} | Title: ${res.title} | Artist: ${res.artist} | Album: ${res.album}`
+                    : 'No media player currently active or playing.';
+                } else {
+                  const cmdMap: Record<string, string> = {
+                    play: 'play',
+                    pause: 'pause',
+                    toggle: 'play-pause',
+                    next: 'next',
+                    previous: 'previous',
+                  };
+                  const res = await mediaService.sendCommand(cmdMap[action] || 'play-pause');
+                  toolOutput = `Command "${action}" sent to ${res.player || 'player'}. Current status: ${res.status}${res.title ? ` (${res.title} - ${res.artist})` : ''}`;
+                }
+                toolState.status = 'completed';
+                toolState.durationMs = Date.now() - (toolState.startTime || Date.now());
+                toolState.result = toolOutput;
+              } catch (err) {
+                toolOutput = `Error controlling media: ${(err as Error).message}`;
                 toolState.status = 'failed';
                 toolState.error = toolOutput;
               }

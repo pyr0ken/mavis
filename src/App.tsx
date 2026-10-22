@@ -251,6 +251,18 @@ export const App: React.FC = () => {
     setState('action');
   }, []);
 
+  // Open Todo & Focus Action Card
+  const handleOpenTodo = useCallback(() => {
+    setIntentType('todo');
+    setState('action');
+  }, []);
+
+  // Open Spotify & MPRIS Media Action Card
+  const handleOpenSpotify = useCallback(() => {
+    setIntentType('spotify');
+    setState('action');
+  }, []);
+
   // Select a session from history
   const handleSelectSession = useCallback(
     (session: SessionRecord) => {
@@ -295,6 +307,32 @@ export const App: React.FC = () => {
     async (promptText: string) => {
       const trimmed = promptText.trim();
       if (!trimmed) return;
+
+      if (trimmed === '/spotify' || trimmed.startsWith('/spotify ')) {
+        setUserPrompt('');
+        handleOpenSpotify();
+        return;
+      }
+      if (trimmed === '/todo' || trimmed.startsWith('/todo ')) {
+        setUserPrompt('');
+        handleOpenTodo();
+        return;
+      }
+      if (trimmed === '/history' || trimmed.startsWith('/history ')) {
+        setUserPrompt('');
+        handleOpenHistory();
+        return;
+      }
+      if (trimmed === '/new' || trimmed.startsWith('/new ')) {
+        setUserPrompt('');
+        handleStartNewSession();
+        return;
+      }
+      if (trimmed === '/clear' || trimmed.startsWith('/clear ')) {
+        setUserPrompt('');
+        handleClearSession();
+        return;
+      }
 
       setUserPrompt('');
 
@@ -425,12 +463,16 @@ export const App: React.FC = () => {
         closePalette: () => {
           setUserPrompt('');
         },
+        openTodo: handleOpenTodo,
+        openSpotify: handleOpenSpotify,
         showNotification,
       });
     },
     [
       handleStartNewSession,
       handleOpenHistory,
+      handleOpenTodo,
+      handleOpenSpotify,
       handleClearSession,
       messages,
       showNotification,
@@ -498,17 +540,41 @@ export const App: React.FC = () => {
         return;
       }
 
-      // Ctrl + N: Quick New Session
-      if (e.ctrlKey && (e.key === 'n' || e.key === 'N')) {
+      // Ctrl + N: Quick New Session (supports Persian and English layouts via e.code)
+      if (e.ctrlKey && (e.key === 'n' || e.key === 'N' || e.code === 'KeyN' || e.key === 'د')) {
         e.preventDefault();
         handleStartNewSession();
         return;
       }
 
       // Ctrl + H: Quick History
-      if (e.ctrlKey && (e.key === 'h' || e.key === 'H')) {
+      if (e.ctrlKey && (e.key === 'h' || e.key === 'H' || e.code === 'KeyH' || e.key === 'ا')) {
         e.preventDefault();
         handleOpenHistory();
+        return;
+      }
+
+      // Ctrl + T: Quick Todo List & Focus
+      if (e.ctrlKey && (e.key === 't' || e.key === 'T' || e.code === 'KeyT' || e.key === 'ف')) {
+        e.preventDefault();
+        if (intentType === 'todo' && stateRef.current === 'action') {
+          setState('idle');
+          setIntentType('chat');
+        } else {
+          handleOpenTodo();
+        }
+        return;
+      }
+
+      // Ctrl + M: Quick Spotify & Media Controller
+      if (e.ctrlKey && (e.key === 'm' || e.key === 'M' || e.code === 'KeyM' || e.key === 'پ')) {
+        e.preventDefault();
+        if (intentType === 'spotify' && stateRef.current === 'action') {
+          setState('idle');
+          setIntentType('chat');
+        } else {
+          handleOpenSpotify();
+        }
         return;
       }
 
@@ -517,6 +583,14 @@ export const App: React.FC = () => {
         if (intentType === 'history') {
           e.preventDefault();
           handleCloseHistory();
+          return;
+        }
+        if (intentType === 'todo') {
+          e.preventDefault();
+          setIntentType('chat');
+          if (messages.length === 0) {
+            setState('idle');
+          }
           return;
         }
         if (userPrompt.startsWith('/')) {
@@ -566,6 +640,8 @@ export const App: React.FC = () => {
     handleStartNewSession,
     handleOpenHistory,
     handleCloseHistory,
+    handleOpenTodo,
+    handleOpenSpotify,
     intentType,
   ]);
 
@@ -608,6 +684,8 @@ export const App: React.FC = () => {
         onDeleteSession={handleDeleteSession}
         onOpenHistory={handleOpenHistory}
         onCloseHistory={handleCloseHistory}
+        onOpenTodo={handleOpenTodo}
+        onOpenSpotify={handleOpenSpotify}
         onInjectPrompt={(prompt, autoSubmit) => {
           setUserPrompt(prompt);
           if (autoSubmit) {

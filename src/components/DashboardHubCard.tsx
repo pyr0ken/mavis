@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MessageSquare,
   Search,
@@ -12,14 +12,24 @@ import {
   Layers,
   History,
   CheckCircle2,
+  CheckSquare,
+  Target,
+  Music,
+  Play,
+  Pause,
 } from 'lucide-react';
 import { SessionRecord, SlashCommand } from '../types/commands';
+import { todoStorageService } from '../services/todo/todoStorageService';
+import { mediaService } from '../services/media/mediaService';
+import { MediaStatus } from '../types/tauri-ipc';
 
 interface DashboardHubCardProps {
   sessions: SessionRecord[];
   activeModelName?: string;
   onSelectSession: (session: SessionRecord) => void;
   onOpenHistory: () => void;
+  onOpenTodo?: () => void;
+  onOpenSpotify?: () => void;
   onExecuteCommand: (cmd: SlashCommand) => void;
   onInjectPrompt: (prompt: string, autoSubmit?: boolean) => void;
 }
@@ -44,9 +54,19 @@ export const DashboardHubCard: React.FC<DashboardHubCardProps> = ({
   activeModelName = 'Antigravity / Hybrid Core',
   onSelectSession,
   onOpenHistory,
+  onOpenTodo,
+  onOpenSpotify,
   onInjectPrompt,
 }) => {
   const recentSessions = sessions.slice(0, 4);
+  const activeDoing = todoStorageService.getActiveDoingItem();
+  const allTodos = todoStorageService.getAllItems();
+  const pendingTodos = allTodos.filter((t) => t.status !== 'done');
+  const [mediaStatus, setMediaStatus] = useState<MediaStatus>(() => mediaService.getCachedStatus());
+
+  useEffect(() => {
+    return mediaService.subscribe(setMediaStatus);
+  }, []);
 
   return (
     <div className="w-full h-full flex flex-col justify-between bg-[#000000] text-slate-200 select-none overflow-hidden animate-in fade-in duration-200">
@@ -145,6 +165,35 @@ export const DashboardHubCard: React.FC<DashboardHubCardProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-2">
+              {/* Action 0: Todo & Focus */}
+              <div
+                onClick={() => onOpenTodo?.()}
+                className="group flex items-center gap-2.5 p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.06] hover:border-emerald-400/30 cursor-pointer transition-all"
+              >
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-400/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  {activeDoing ? (
+                    <Target size={15} className="text-amber-400 animate-spin-slow" />
+                  ) : (
+                    <CheckSquare size={15} />
+                  )}
+                </div>
+                <div className="min-w-0 flex flex-col">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-slate-200 group-hover:text-white truncate">
+                      Todo & Focus
+                    </span>
+                    {activeDoing && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-400 truncate">
+                    {activeDoing
+                      ? `Doing: ${activeDoing.title}`
+                      : `${pendingTodos.length} pending · Ctrl+T`}
+                  </span>
+                </div>
+              </div>
+
               {/* Action 1: Search Files */}
               <div
                 onClick={() =>
@@ -264,8 +313,72 @@ export const DashboardHubCard: React.FC<DashboardHubCardProps> = ({
                   </span>
                 </div>
               </div>
+              {/* Action 7: Spotify & Music */}
+              <div
+                onClick={() => onOpenSpotify?.()}
+                className="group flex items-center gap-2.5 p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.06] hover:border-emerald-400/30 cursor-pointer transition-all"
+              >
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-400/20 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <Music size={15} />
+                </div>
+                <div className="min-w-0 flex flex-col">
+                  <span className="text-xs font-semibold text-slate-200 group-hover:text-white truncate">
+                    Spotify & Music
+                  </span>
+                  <span className="text-[10px] text-slate-400 truncate">
+                    MPRIS player · /spotify
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
+
+          {/* Live Now Playing MPRIS Bar (if player active) */}
+          {mediaStatus.status !== 'None' && (mediaStatus.title || mediaStatus.artist) && (
+            <div
+              onClick={() => onOpenSpotify?.()}
+              className="p-2.5 rounded-2xl bg-emerald-500/[0.06] hover:bg-emerald-500/[0.1] border border-emerald-500/20 hover:border-emerald-500/40 cursor-pointer transition-all flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <div className="w-8 h-8 rounded-lg bg-neutral-900 border border-white/10 overflow-hidden flex items-center justify-center shrink-0">
+                  {mediaStatus.art_url ? (
+                    <img src={mediaStatus.art_url} alt="Cover" className="w-full h-full object-cover" />
+                  ) : (
+                    <Music size={14} className="text-emerald-400" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-white truncate max-w-[180px]">
+                      {mediaStatus.title || 'Unknown Track'}
+                    </span>
+                    {mediaStatus.status === 'Playing' && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-400 truncate block">
+                    {mediaStatus.artist || (mediaStatus.is_spotify ? 'Spotify' : 'Music')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0 pl-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    mediaService.togglePlayPause();
+                  }}
+                  className="w-7 h-7 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+                >
+                  {mediaStatus.status === 'Playing' ? (
+                    <Pause size={12} className="stroke-[2.5]" />
+                  ) : (
+                    <Play size={12} className="stroke-[2.5] ml-0.5" />
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* System & Agent Vital Stats Card */}
           <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-2">

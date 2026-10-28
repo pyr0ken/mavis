@@ -527,6 +527,27 @@ fn now_millis() -> u64 {
         .as_millis() as u64
 }
 
+#[cfg(target_os = "linux")]
+unsafe fn query_physical_modifiers(display: *mut x11::xlib::Display) -> Option<(bool, bool)> {
+    if display.is_null() {
+        return None;
+    }
+    let mut keys: [u8; 32] = [0; 32];
+    if x11::xlib::XQueryKeymap(display, keys.as_mut_ptr() as *mut std::os::raw::c_char) != 0 {
+        let is_down = |code: u8| -> bool {
+            let byte_idx = (code / 8) as usize;
+            let bit_idx = code % 8;
+            (keys[byte_idx] & (1 << bit_idx)) != 0
+        };
+        // Linux X11 standard keycodes: 37 = Control_L, 105 = Control_R, 64 = Alt_L
+        let ctrl = is_down(37) || is_down(105);
+        let alt = is_down(64);
+        Some((ctrl, alt))
+    } else {
+        None
+    }
+}
+
 pub fn run() {
     #[cfg(target_os = "linux")]
     {
@@ -604,20 +625,39 @@ pub fn run() {
             std::thread::spawn(move || {
                 use rdev::{Event, EventType, Key};
 
+                #[cfg(target_os = "linux")]
+                let dpy = unsafe { x11::xlib::XOpenDisplay(std::ptr::null()) };
+
                 let callback = move |event: Event| {
                     match event.event_type {
                         EventType::KeyPress(key) => {
-                            match key {
+                            let is_mod = match key {
                                 Key::ControlLeft | Key::ControlRight => {
                                     ctrl_held.store(true, Ordering::SeqCst);
+                                    true
                                 }
-                                Key::Alt | Key::AltGr => {
+                                Key::Alt => {
                                     alt_held.store(true, Ordering::SeqCst);
+                                    true
                                 }
-                                _ => {}
+                                _ => false,
+                            };
+
+                            if !is_mod {
+                                // A non-modifier key was pressed (e.g. RightArrow, LeftArrow, KeyA, etc.)
+                                // The user is typing or navigating, NOT triggering Mavis.
+                                // Latch immediately to suppress any trigger while this key is used.
+                                triggered_latch.store(true, Ordering::SeqCst);
+                                return;
                             }
 
-                            // Trigger ONLY once when both keys are held and latch is unlatched
+                            #[cfg(target_os = "linux")]
+                            if let Some((phys_ctrl, phys_alt)) = unsafe { query_physical_modifiers(dpy) } {
+                                ctrl_held.store(phys_ctrl, Ordering::SeqCst);
+                                alt_held.store(phys_alt, Ordering::SeqCst);
+                            }
+
+                            // Trigger ONLY when both keys are held and latch is unlatched
                             let is_both = ctrl_held.load(Ordering::SeqCst) && alt_held.load(Ordering::SeqCst);
                             if is_both && !triggered_latch.load(Ordering::SeqCst) {
                                 let now = now_millis();
@@ -654,10 +694,16 @@ pub fn run() {
                                 Key::ControlLeft | Key::ControlRight => {
                                     ctrl_held.store(false, Ordering::SeqCst);
                                 }
-                                Key::Alt | Key::AltGr => {
+                                Key::Alt => {
                                     alt_held.store(false, Ordering::SeqCst);
                                 }
                                 _ => {}
+                            }
+
+                            #[cfg(target_os = "linux")]
+                            if let Some((phys_ctrl, phys_alt)) = unsafe { query_physical_modifiers(dpy) } {
+                                ctrl_held.store(phys_ctrl, Ordering::SeqCst);
+                                alt_held.store(phys_alt, Ordering::SeqCst);
                             }
 
                             // When at least one key is released, release the latch so next press can trigger cleanly
@@ -672,6 +718,13 @@ pub fn run() {
 
                 if let Err(error) = rdev::listen(callback) {
                     eprintln!("Global keyhook error: {:?}", error);
+                }
+
+                #[cfg(target_os = "linux")]
+                if !dpy.is_null() {
+                    unsafe {
+                        x11::xlib::XCloseDisplay(dpy);
+                    }
                 }
             });
 

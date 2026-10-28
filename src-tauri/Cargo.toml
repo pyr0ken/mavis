@@ -27,3 +27,4 @@ base64 = "0.22"
 gtk = "0.18"
 gdk = "0.18"
 cairo-rs = "0.18"
+x11 = { version = "2.21.0", features = ["xlib"] }

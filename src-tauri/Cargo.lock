@@ -2082,6 +2082,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-global-shortcut",
+ "x11",
 ]
 
 [[package]]

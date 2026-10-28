@@ -102,6 +102,39 @@ export class CommandRegistry {
     const defaults: SlashCommand[] = [
       // 1. System Commands
       {
+        id: 'cmd-home',
+        prefix: '/home',
+        label: 'Home Dashboard',
+        description: 'Return to home dashboard, recent sessions, and quick actions',
+        category: 'system',
+        icon: 'Home',
+        shortcut: 'Ctrl+Shift+H',
+        keywords: ['home', 'dashboard', 'hub', 'main', 'start', 'صفحه اصلی', 'خانه', 'داشبورد'],
+        execute: (ctx) => {
+          if (ctx.openHome) {
+            ctx.openHome();
+          } else {
+            ctx.showNotification('Navigating to Home Dashboard', 'info');
+          }
+        },
+      },
+      {
+        id: 'cmd-dashboard',
+        prefix: '/dashboard',
+        label: 'Dashboard Hub',
+        description: 'Open the central hub with recents, tasks, and vital HUD',
+        category: 'system',
+        icon: 'Home',
+        keywords: ['dashboard', 'home', 'hub', 'main', 'صفحه اصلی', 'داشبورد'],
+        execute: (ctx) => {
+          if (ctx.openHome) {
+            ctx.openHome();
+          } else {
+            ctx.showNotification('Navigating to Home Dashboard', 'info');
+          }
+        },
+      },
+      {
         id: 'cmd-new',
         prefix: '/new',
         label: 'New Session',

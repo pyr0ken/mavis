@@ -25,6 +25,9 @@ import { MediaStatus } from '../types/tauri-ipc';
 
 interface DashboardHubCardProps {
   sessions: SessionRecord[];
+  activeSessionId?: string;
+  hasActiveChat?: boolean;
+  onReturnToChat?: () => void;
   activeModelName?: string;
   onSelectSession: (session: SessionRecord) => void;
   onOpenHistory: () => void;
@@ -51,6 +54,9 @@ const formatRelativeTime = (timestamp: number): string => {
 
 export const DashboardHubCard: React.FC<DashboardHubCardProps> = ({
   sessions,
+  activeSessionId,
+  hasActiveChat,
+  onReturnToChat,
   activeModelName = 'Antigravity / Hybrid Core',
   onSelectSession,
   onOpenHistory,
@@ -75,6 +81,26 @@ export const DashboardHubCard: React.FC<DashboardHubCardProps> = ({
         {/* Left Column (5 Cols): Recent Conversations & Resume */}
         <div className="md:col-span-5 flex flex-col justify-between space-y-3">
           <div className="space-y-2.5">
+            {/* Quick Resume Active Chat Pill (if user navigated to home mid-chat) */}
+            {hasActiveChat && onReturnToChat && (
+              <div
+                onClick={onReturnToChat}
+                className="group flex items-center justify-between p-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/15 border border-cyan-400/30 hover:border-cyan-400/50 cursor-pointer transition-all shadow-[0_0_15px_rgba(6,182,212,0.12)] active:scale-[0.99]"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-cyan-300">Active Conversation</div>
+                    <div className="text-[10px] text-cyan-400/80">Click to return to active chat</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-cyan-400 font-medium group-hover:translate-x-0.5 transition-transform">
+                  <span>Resume</span>
+                  <ArrowRight size={12} />
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2 text-xs font-semibold tracking-wider text-slate-300">
                 <History size={14} className="text-cyan-400" />
@@ -97,21 +123,35 @@ export const DashboardHubCard: React.FC<DashboardHubCardProps> = ({
                 recentSessions.map((sess) => {
                   const messageCount = sess.messages.filter((m) => m.role !== 'system').length;
                   const lastUserMsg = sess.messages.slice().reverse().find((m) => m.role === 'user');
+                  const isCurrent = sess.id === activeSessionId;
 
                   return (
                     <div
                       key={sess.id}
                       onClick={() => onSelectSession(sess)}
-                      className="group flex items-start gap-3 p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.06] hover:border-cyan-400/30 cursor-pointer transition-all duration-150 active:scale-[0.99]"
+                      className={`group flex items-start gap-3 p-2.5 rounded-xl border cursor-pointer transition-all duration-150 active:scale-[0.99] ${
+                        isCurrent
+                          ? 'bg-cyan-500/[0.06] hover:bg-cyan-500/[0.1] border-cyan-400/30 hover:border-cyan-400/50'
+                          : 'bg-white/[0.02] hover:bg-white/[0.06] border-white/[0.06] hover:border-cyan-400/30'
+                      }`}
                     >
-                      <div className="w-7 h-7 rounded-lg bg-cyan-500/10 group-hover:bg-cyan-500/20 text-cyan-400 border border-cyan-400/20 flex items-center justify-center shrink-0 mt-0.5 transition-colors">
+                      <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                        isCurrent
+                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40'
+                          : 'bg-cyan-500/10 group-hover:bg-cyan-500/20 text-cyan-400 border-cyan-400/20'
+                      }`}>
                         <MessageSquare size={13} />
                       </div>
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-semibold text-slate-100 group-hover:text-white truncate">
+                          <span className="text-xs font-semibold text-slate-100 group-hover:text-white truncate flex items-center gap-1.5">
                             {sess.title || 'Untitled Session'}
+                            {isCurrent && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-cyan-400/15 text-cyan-300 border border-cyan-400/30 font-normal">
+                                Current
+                              </span>
+                            )}
                           </span>
                           <span className="text-[10px] text-slate-400 shrink-0 font-mono">
                             {formatRelativeTime(sess.updatedAt || sess.createdAt)}

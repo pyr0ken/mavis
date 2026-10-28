@@ -263,6 +263,30 @@ export const App: React.FC = () => {
     setState('action');
   }, []);
 
+  // Open Home Dashboard Card
+  const handleOpenHome = useCallback(() => {
+    if (messages.length > 0 && activeSessionId) {
+      sessionStorageService.saveSessionMessages(activeSessionId, messages);
+      setSessions(sessionStorageService.getAllSessions());
+    }
+    setIntentType('home');
+    setState('action');
+    setUserPrompt('');
+    showNotification('Home Dashboard', 'info');
+    setTimeout(() => {
+      notchInputRef.current?.focus();
+    }, 50);
+  }, [messages, activeSessionId, showNotification]);
+
+  // Return to active chat from Home Dashboard
+  const handleReturnToChat = useCallback(() => {
+    setIntentType('chat');
+    setState('action');
+    setTimeout(() => {
+      notchInputRef.current?.focus();
+    }, 50);
+  }, []);
+
   // Select a session from history
   const handleSelectSession = useCallback(
     (session: SessionRecord) => {
@@ -308,27 +332,39 @@ export const App: React.FC = () => {
       const trimmed = promptText.trim();
       if (!trimmed) return;
 
-      if (trimmed === '/spotify' || trimmed.startsWith('/spotify ')) {
+      const normalizedCmd = trimmed.replace(/^\/\s+/, '/').toLowerCase();
+
+      if (
+        normalizedCmd === '/home' ||
+        normalizedCmd.startsWith('/home ') ||
+        normalizedCmd === '/dashboard' ||
+        normalizedCmd.startsWith('/dashboard ')
+      ) {
+        setUserPrompt('');
+        handleOpenHome();
+        return;
+      }
+      if (normalizedCmd === '/spotify' || normalizedCmd.startsWith('/spotify ')) {
         setUserPrompt('');
         handleOpenSpotify();
         return;
       }
-      if (trimmed === '/todo' || trimmed.startsWith('/todo ')) {
+      if (normalizedCmd === '/todo' || normalizedCmd.startsWith('/todo ')) {
         setUserPrompt('');
         handleOpenTodo();
         return;
       }
-      if (trimmed === '/history' || trimmed.startsWith('/history ')) {
+      if (normalizedCmd === '/history' || normalizedCmd.startsWith('/history ')) {
         setUserPrompt('');
         handleOpenHistory();
         return;
       }
-      if (trimmed === '/new' || trimmed.startsWith('/new ')) {
+      if (normalizedCmd === '/new' || normalizedCmd.startsWith('/new ')) {
         setUserPrompt('');
         handleStartNewSession();
         return;
       }
-      if (trimmed === '/clear' || trimmed.startsWith('/clear ')) {
+      if (normalizedCmd === '/clear' || normalizedCmd.startsWith('/clear ')) {
         setUserPrompt('');
         handleClearSession();
         return;
@@ -463,6 +499,7 @@ export const App: React.FC = () => {
         closePalette: () => {
           setUserPrompt('');
         },
+        openHome: handleOpenHome,
         openTodo: handleOpenTodo,
         openSpotify: handleOpenSpotify,
         showNotification,
@@ -471,6 +508,7 @@ export const App: React.FC = () => {
     [
       handleStartNewSession,
       handleOpenHistory,
+      handleOpenHome,
       handleOpenTodo,
       handleOpenSpotify,
       handleClearSession,
@@ -547,8 +585,15 @@ export const App: React.FC = () => {
         return;
       }
 
+      // Ctrl + Shift + H: Quick Home Dashboard
+      if (e.ctrlKey && e.shiftKey && (e.key === 'h' || e.key === 'H' || e.code === 'KeyH' || e.key === 'ا')) {
+        e.preventDefault();
+        handleOpenHome();
+        return;
+      }
+
       // Ctrl + H: Quick History
-      if (e.ctrlKey && (e.key === 'h' || e.key === 'H' || e.code === 'KeyH' || e.key === 'ا')) {
+      if (e.ctrlKey && !e.shiftKey && (e.key === 'h' || e.key === 'H' || e.code === 'KeyH' || e.key === 'ا')) {
         e.preventDefault();
         handleOpenHistory();
         return;
@@ -578,7 +623,7 @@ export const App: React.FC = () => {
         return;
       }
 
-      // Escape: Close history drawer or dismiss slash palette
+      // Escape: Close history drawer, todo, spotify, home, or dismiss slash palette
       if (e.key === 'Escape') {
         if (intentType === 'history') {
           e.preventDefault();
@@ -586,6 +631,22 @@ export const App: React.FC = () => {
           return;
         }
         if (intentType === 'todo') {
+          e.preventDefault();
+          setIntentType('chat');
+          if (messages.length === 0) {
+            setState('idle');
+          }
+          return;
+        }
+        if (intentType === 'spotify') {
+          e.preventDefault();
+          setIntentType('chat');
+          if (messages.length === 0) {
+            setState('idle');
+          }
+          return;
+        }
+        if (intentType === 'home') {
           e.preventDefault();
           setIntentType('chat');
           if (messages.length === 0) {
@@ -640,6 +701,7 @@ export const App: React.FC = () => {
     handleStartNewSession,
     handleOpenHistory,
     handleCloseHistory,
+    handleOpenHome,
     handleOpenTodo,
     handleOpenSpotify,
     intentType,
@@ -684,6 +746,8 @@ export const App: React.FC = () => {
         onDeleteSession={handleDeleteSession}
         onOpenHistory={handleOpenHistory}
         onCloseHistory={handleCloseHistory}
+        onOpenHome={handleOpenHome}
+        onReturnToChat={handleReturnToChat}
         onOpenTodo={handleOpenTodo}
         onOpenSpotify={handleOpenSpotify}
         onInjectPrompt={(prompt, autoSubmit) => {

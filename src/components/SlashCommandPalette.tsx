@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import {
   Plus,
   History,
+  Home,
   Trash2,
   Minimize2,
   Sliders,
@@ -55,6 +56,8 @@ const renderIcon = (iconName: string) => {
   switch (iconName) {
     case 'Plus':
       return <Plus {...iconProps} className="text-emerald-400" />;
+    case 'Home':
+      return <Home {...iconProps} className="text-cyan-400" />;
     case 'History':
       return <History {...iconProps} className="text-indigo-400" />;
     case 'Trash2':

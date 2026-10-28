@@ -65,6 +65,8 @@ interface NotchContainerProps {
   onCloseHistory?: () => void;
   onOpenTodo?: () => void;
   onOpenSpotify?: () => void;
+  onOpenHome?: () => void;
+  onReturnToChat?: () => void;
   onInjectPrompt?: (prompt: string, autoSubmit?: boolean) => void;
   onClearSession?: () => void;
   onNotchClick: () => void;
@@ -111,6 +113,7 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
   onCloseHistory,
   onOpenTodo,
   onOpenSpotify,
+  onReturnToChat,
   onInjectPrompt,
   onClearSession,
   onNotchClick,
@@ -520,9 +523,12 @@ export const NotchContainer: React.FC<NotchContainerProps> = ({
                     onCloseHistory?.();
                   }}
                 />
-              ) : messages.length === 0 ? (
+              ) : intentType === 'home' || messages.length === 0 ? (
                 <DashboardHubCard
                   sessions={sessions}
+                  activeSessionId={activeSessionId}
+                  hasActiveChat={messages.length > 0}
+                  onReturnToChat={onReturnToChat}
                   activeModelName={activeModelName}
                   onSelectSession={(sess) => {
                     onSelectSession?.(sess);
